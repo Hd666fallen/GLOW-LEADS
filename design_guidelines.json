@@ -1,0 +1,150 @@
+{
+  "project_name": "GlowLeads",
+  "theme_and_archetype": {
+    "customer_funnel": {
+      "theme": "light",
+      "dark_mode_supported": true,
+      "archetype": "3 (Pastel & Soft) & 1 (Organic & Earthy)",
+      "description": "Organic, warm, and highly visual. Emotionally comforting yet luxurious, appealing directly to beauty consumers."
+    },
+    "nail_tech_dashboard": {
+      "theme": "light",
+      "archetype": "3 (Pastel & Soft)",
+      "description": "Clean, iPhone-simple, mobile-first with soft shadows and rose gold accents to make the professional feel at home."
+    },
+    "agency_dashboard": {
+      "theme": "dark",
+      "archetype": "4 (Swiss & High-Contrast)",
+      "description": "Authority, data-density, and deep cinematic feel. Professional SaaS, optimized for complex analytics without eye strain."
+    }
+  },
+  "color_palette": {
+    "customer_funnel": {
+      "light": {
+        "primary": "#C2185B",
+        "background": "#FCE4EC",
+        "accent": "#FFD700",
+        "text": "#1F2937",
+        "surface": "#FFFFFF"
+      },
+      "dark": {
+        "background": "#1A1A2E",
+        "primary": "#C2185B",
+        "accent": "#FFD700",
+        "text": "#F9FAFB",
+        "surface": "#16213E"
+      }
+    },
+    "nail_tech_dashboard": {
+      "background": "#FFFFFF",
+      "primary": "#B76E79",
+      "accent": "#FADADD",
+      "surface": "#F9FAFB",
+      "text": "#111827",
+      "border": "#E5E7EB"
+    },
+    "agency_dashboard": {
+      "background": "#0D1B2A",
+      "primary": "#00B4D8",
+      "surface": "#1B263B",
+      "text": "#E0E1DD",
+      "border": "#415A77",
+      "muted": "#778DA9"
+    }
+  },
+  "typography": {
+    "fonts": {
+      "headings": "Playfair Display",
+      "body": "Poppins"
+    },
+    "rules": {
+      "h1": "font-serif text-4xl sm:text-5xl lg:text-6xl tracking-tight leading-none",
+      "h2": "font-serif text-2xl sm:text-3xl lg:text-4xl tracking-tight",
+      "h3": "font-serif text-xl sm:text-2xl",
+      "body": "font-sans text-base leading-relaxed tracking-normal",
+      "labels": "font-sans uppercase tracking-[0.2em] text-xs font-semibold"
+    }
+  },
+  "layout_and_spacing": {
+    "customer_funnel": {
+      "container": "max-w-6xl mx-auto px-4 md:px-8 py-12 md:py-24",
+      "hero_pattern": "Z-pattern layout required: Logo top-left, headline top-right, visual center-left, CTA center-right, social proof bottom.",
+      "spacing": "Generous spacing, p-8 to p-16 between steps to allow breathing room for images."
+    },
+    "nail_tech_dashboard": {
+      "container": "max-w-md mx-auto h-[100dvh] flex flex-col bg-white overflow-hidden relative shadow-2xl",
+      "navigation": "Fixed bottom navigation bar, h-16, even spacing between icons, iPhone-level simplicity.",
+      "cards": "rounded-2xl p-5 shadow-sm border border-gray-100 bg-white mb-4",
+      "scroll_area": "flex-1 overflow-y-auto pb-20"
+    },
+    "agency_dashboard": {
+      "container": "flex h-screen overflow-hidden bg-[#0D1B2A] text-[#E0E1DD]",
+      "sidebar": "w-64 flex-shrink-0 border-r border-[#415A77] bg-[#0D1B2A] p-6",
+      "main_content": "flex-1 overflow-y-auto p-8 bg-[#0D1B2A]",
+      "cards": "rounded-xl border border-[#415A77] bg-[#1B263B] p-6 shadow-lg",
+      "grid": "grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6"
+    }
+  },
+  "components": {
+    "global": [
+      "Use Lucide React for all icons."
+    ],
+    "customer_funnel": [
+      "Use Framer Motion for smooth step transitions (fade in, slide up 20px).",
+      "Implement heavily customized Shadcn UI elements avoiding the 'Vercel-look'.",
+      "Buttons must have a subtle continuous pulse animation (scale 1.05) to draw attention to the CTA.",
+      "Integrate react-confetti for the final booking confirmation step."
+    ],
+    "nail_tech_dashboard": [
+      "Utilize native-feeling UI elements.",
+      "Swipeable list items for appointments (e.g., using Framer Motion drag).",
+      "Subtle tap highlights instead of heavy hover states (since it's mobile-first)."
+    ],
+    "agency_dashboard": [
+      "Use Recharts for Analytics and Style Intelligence charts. Ensure tooltips have dark mode styling matching #1B263B.",
+      "Dense data tables with sticky headers. Rows should have hover state: hover:bg-[#415A77]/30."
+    ]
+  },
+  "testing": {
+    "requirements": "All interactive and key informational elements MUST include a data-testid attribute formatted as kebab-case, role-based."
+  },
+  "image_urls": {
+    "hero_nail_art": {
+      "url": "https://images.unsplash.com/photo-1754799670312-8e7da8e40ad7?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2Njl8MHwxfHNlYXJjaHwxfHxuYWlsJTIwYXJ0JTIwbWFuaWN1cmUlMjBjbG9zZSUyMHVwfGVufDB8fHx8MTc3NzYxMDg1MHww&ixlib=rb-4.1.0&q=85",
+      "description": "High-end ornate navy, gold, and white nail art close-up. Used for customer funnel hero."
+    },
+    "demo_hand_upload": {
+      "url": "https://images.unsplash.com/photo-1772983199675-1619df59ba2a?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2Njl8MHwxfHNlYXJjaHwyfHxuYWlsJTIwYXJ0JTIwbWFuaWN1cmUlMjBjbG9zZSUyMHVwfGVufDB8fHx8MTc3NzYxMDg1MHww&ixlib=rb-4.1.0&q=85",
+      "description": "Natural hand with curled fingers showing nails clearly. Used for step 2 (Upload hand photo)."
+    },
+    "nail_tech_profile": {
+      "url": "https://images.unsplash.com/photo-1713552566168-89c00fd622cf?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1MDV8MHwxfHNlYXJjaHwyfHxiZWF1dHklMjBzYWxvbiUyMHdvcmtlciUyMHBvcnRyYWl0fGVufDB8fHx8MTc3NzYxMDg1MHww&ixlib=rb-4.1.0&q=85",
+      "description": "Portrait of a beautician in front of a mirror. Used for nail tech dashboard profile."
+    },
+    "style_thumbnails": [
+      {
+        "url": "https://images.unsplash.com/photo-1772322586649-fc11154e76b9?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2Njl8MHwxfHNlYXJjaHw0fHxuYWlsJTIwYXJ0JTIwbWFuaWN1cmUlMjBjbG9zZSUyMHVwfGVufDB8fHx8MTc3NzYxMDg1MHww&ixlib=rb-4.1.0&q=85",
+        "description": "Matte pink square nails",
+        "category": "Finishes"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1772322586711-22f84f5f3432?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2Njl8MHwxfHNlYXJjaHwzfHxuYWlsJTIwYXJ0JTIwbWFuaWN1cmUlMjBjbG9zZSUyMHVwfGVufDB8fHx8MTc3NzYxMDg1MHww&ixlib=rb-4.1.0&q=85",
+        "description": "Black and red nail art",
+        "category": "Nail Art"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1754799670312-8e7da8e40ad7?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2Njl8MHwxfHNlYXJjaHwxfHxuYWlsJTIwYXJ0JTIwbWFuaWN1cmUlMjBjbG9zZSUyMHVwfGVufDB8fHx8MTc3NzYxMDg1MHww&ixlib=rb-4.1.0&q=85",
+        "description": "Navy and gold ornate",
+        "category": "Specialty"
+      }
+    ]
+  },
+  "instructions_to_main_agent": [
+    "Use standard React + Tailwind CSS with Shadcn primitives (use .jsx/.js, NOT .tsx/.ts).",
+    "Import fonts: Playfair Display and Poppins via Google Fonts in index.html.",
+    "For the 60-style library (step 4 of funnel), use the 3 sample images provided in style_thumbnails and programmatically duplicate them to generate 60 mock items spread across the required tabs (Finishes, French, Ombre, Nail Art, Embellishments, Colors, Specialty).",
+    "Ensure strict isolation of CSS/themes between the 3 interfaces using route-based wrapper classes (e.g., <div className='funnel-theme'>).",
+    "Mobile layout for the Nail Tech Dashboard must be strictly enforced using max-w-md mx-auto and h-screen.",
+    "Agency Dashboard must have a sticky sidebar and scrolling main content area."
+  ]
+}
