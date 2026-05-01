@@ -3,113 +3,164 @@
 @tailwind utilities;
 
 body {
-    margin: 0;
-    font-family:
-        -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
-        "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
-        sans-serif;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+  margin: 0;
+  font-family: "Poppins", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-code {
-    font-family:
-        source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
+.font-serif, h1, h2, h3 {
+  font-family: "Playfair Display", serif;
 }
 
-@layer base {
-    :root {
-        --background: 0 0% 100%;
-        --foreground: 0 0% 3.9%;
-        --card: 0 0% 100%;
-        --card-foreground: 0 0% 3.9%;
-        --popover: 0 0% 100%;
-        --popover-foreground: 0 0% 3.9%;
-        --primary: 0 0% 9%;
-        --primary-foreground: 0 0% 98%;
-        --secondary: 0 0% 96.1%;
-        --secondary-foreground: 0 0% 9%;
-        --muted: 0 0% 96.1%;
-        --muted-foreground: 0 0% 45.1%;
-        --accent: 0 0% 96.1%;
-        --accent-foreground: 0 0% 9%;
-        --destructive: 0 84.2% 60.2%;
-        --destructive-foreground: 0 0% 98%;
-        --border: 0 0% 89.8%;
-        --input: 0 0% 89.8%;
-        --ring: 0 0% 3.9%;
-        --chart-1: 12 76% 61%;
-        --chart-2: 173 58% 39%;
-        --chart-3: 197 37% 24%;
-        --chart-4: 43 74% 66%;
-        --chart-5: 27 87% 67%;
-        --radius: 0.5rem;
-    }
-    .dark {
-        --background: 0 0% 3.9%;
-        --foreground: 0 0% 98%;
-        --card: 0 0% 3.9%;
-        --card-foreground: 0 0% 98%;
-        --popover: 0 0% 3.9%;
-        --popover-foreground: 0 0% 98%;
-        --primary: 0 0% 98%;
-        --primary-foreground: 0 0% 9%;
-        --secondary: 0 0% 14.9%;
-        --secondary-foreground: 0 0% 98%;
-        --muted: 0 0% 14.9%;
-        --muted-foreground: 0 0% 63.9%;
-        --accent: 0 0% 14.9%;
-        --accent-foreground: 0 0% 98%;
-        --destructive: 0 62.8% 30.6%;
-        --destructive-foreground: 0 0% 98%;
-        --border: 0 0% 14.9%;
-        --input: 0 0% 14.9%;
-        --ring: 0 0% 83.1%;
-        --chart-1: 220 70% 50%;
-        --chart-2: 160 60% 45%;
-        --chart-3: 30 80% 55%;
-        --chart-4: 280 65% 60%;
-        --chart-5: 340 75% 55%;
-    }
+.font-sans, p, label, button, input, textarea, span, div {
+  font-family: "Poppins", sans-serif;
 }
 
 @layer base {
-    * {
-        @apply border-border;
-    }
-    body {
-        @apply bg-background text-foreground;
-    }
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 3.9%;
+    --primary: 336 75% 43%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 340 82% 94%;
+    --secondary-foreground: 336 75% 43%;
+    --muted: 0 0% 96.1%;
+    --muted-foreground: 0 0% 45.1%;
+    --accent: 340 82% 94%;
+    --accent-foreground: 336 75% 43%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 89.8%;
+    --input: 0 0% 89.8%;
+    --ring: 336 75% 43%;
+    --radius: 0.75rem;
+    --chart-1: 336 75% 55%;
+    --chart-2: 51 100% 50%;
+    --chart-3: 197 100% 42%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 12 76% 61%;
+  }
+  .dark {
+    --background: 237 28% 14%;
+    --foreground: 0 0% 98%;
+    --card: 237 28% 18%;
+    --card-foreground: 0 0% 98%;
+    --popover: 237 28% 18%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 336 75% 55%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 237 28% 22%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 237 28% 22%;
+    --muted-foreground: 0 0% 70%;
+    --accent: 237 28% 22%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 40.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 237 28% 30%;
+    --input: 237 28% 30%;
+    --ring: 336 75% 55%;
+  }
 }
 
 @layer base {
-    [data-debug-wrapper="true"] {
-        display: contents !important;
-    }
-
-    [data-debug-wrapper="true"] > * {
-        margin-left: inherit;
-        margin-right: inherit;
-        margin-top: inherit;
-        margin-bottom: inherit;
-        padding-left: inherit;
-        padding-right: inherit;
-        padding-top: inherit;
-        padding-bottom: inherit;
-        column-gap: inherit;
-        row-gap: inherit;
-        gap: inherit;
-        border-left-width: inherit;
-        border-right-width: inherit;
-        border-top-width: inherit;
-        border-bottom-width: inherit;
-        border-left-style: inherit;
-        border-right-style: inherit;
-        border-top-style: inherit;
-        border-bottom-style: inherit;
-        border-left-color: inherit;
-        border-right-color: inherit;
-        border-top-color: inherit;
-        border-bottom-color: inherit;
-    }
+  * { @apply border-border; }
+  body { @apply bg-background text-foreground; }
 }
+
+/* ---------- Customer Funnel theme ---------- */
+.funnel-theme {
+  background: #fce4ec;
+  color: #1f2937;
+  min-height: 100vh;
+}
+.funnel-theme.dark-mode {
+  background: #1a1a2e;
+  color: #f9fafb;
+}
+.funnel-headline { font-family: "Playfair Display", serif; }
+.funnel-cta {
+  background: linear-gradient(180deg, #FFE066 0%, #FFD700 100%);
+  color: #1f2937;
+  box-shadow: 0 10px 30px -10px rgba(255, 215, 0, 0.6), 0 0 0 2px rgba(194, 24, 91, 0.15);
+  font-weight: 600;
+}
+.funnel-cta:hover { transform: translateY(-1px); box-shadow: 0 14px 36px -10px rgba(255, 215, 0, 0.8); }
+
+@keyframes gentle-pulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 10px 30px -10px rgba(255, 215, 0, 0.6); }
+  50% { transform: scale(1.035); box-shadow: 0 14px 40px -8px rgba(255, 215, 0, 0.9); }
+}
+.pulse-cta { animation: gentle-pulse 2.4s ease-in-out infinite; }
+
+@keyframes shimmer-reveal {
+  0% { opacity: 0; transform: scale(0.98); filter: blur(10px); }
+  100% { opacity: 1; transform: scale(1); filter: blur(0); }
+}
+.shimmer-reveal { animation: shimmer-reveal 1.2s ease-out both; }
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.slide-up { animation: slideUp 0.5s ease-out both; }
+
+/* ---------- Tech dashboard theme ---------- */
+.tech-theme {
+  background: #f9fafb;
+  min-height: 100dvh;
+}
+.tech-card {
+  background: #ffffff;
+  border-radius: 1rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 20px -8px rgba(183, 110, 121, 0.15);
+  border: 1px solid #f4e3e6;
+}
+.rose-gold-gradient {
+  background: linear-gradient(135deg, #b76e79 0%, #d8a7b1 100%);
+  color: white;
+}
+
+/* ---------- Agency dashboard theme ---------- */
+.agency-theme {
+  background: #0d1b2a;
+  color: #e0e1dd;
+  min-height: 100vh;
+}
+.agency-card {
+  background: #1b263b;
+  border: 1px solid #415a77;
+  border-radius: 0.75rem;
+}
+.agency-card:hover { border-color: #00b4d8; }
+
+/* Confetti */
+.confetti-piece {
+  position: absolute;
+  width: 10px;
+  height: 16px;
+  top: -20px;
+  opacity: 0.9;
+  animation: confetti-fall 3.2s linear forwards;
+}
+@keyframes confetti-fall {
+  0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(110vh) rotate(720deg); opacity: 0.4; }
+}
+
+/* Upload dropzone */
+.dropzone {
+  border: 2px dashed #C2185B;
+  background: rgba(255, 255, 255, 0.7);
+  transition: all 0.25s ease;
+}
+.dropzone.dragging { background: rgba(255, 215, 0, 0.1); border-color: #FFD700; transform: scale(1.01); }
+
+/* Scrollable category tabs */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
