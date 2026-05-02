@@ -26,17 +26,31 @@ Full-stack AI-powered lead generation SaaS platform for nail technicians with 3 
 
 ## What's Been Implemented (2026-02)
 ### Backend
-- JWT login/register (`/api/auth/*`)
+- JWT login/register (`/api/auth/*`) with `verifyAuth`-safe token check
 - Public funnel: `/api/public/tech/{slug}`, `/api/styles`, `/api/ai/detect`, `/api/ai/try-on`, `/api/leads`, `/api/bookings`
-- Tech dashboard: profile, styles, appointments, leads, stats, follow-up (`/api/tech/me/*`)
-- Agency dashboard: overview, clients, analytics, style-intel, billing (`/api/agency/*`)
-- Seeds 1 agency + 3 techs + 7 appointments + 10 leads on startup
+- **Bookings now trigger 3 automation SMS logs** (instant confirmation + 24h reminder + 1h reminder) deterministically
+- Tech dashboard: profile, styles, appointments, leads (with hot/warm/cold temp), stats (activity feed w/ automation icons), follow-up, automations get/put, winback section
+- Agency dashboard: overview, clients, analytics, style-intel (drop-off %, walking_in_with, market_gaps), billing
+- Seeds 1 agency + 5 techs (Sophie/Bella/Jade/Luxe MTL/Nailed It YYC — all Canadian) + 30 leads + 10 appts + pre-computed automation SMS logs
+- Startup purges any TEST_ data
 
 ### Frontend
-- Landing page (demo CTA + feature cards)
-- Full 7-step customer funnel with upload, AI detection, style grid (7 tabs), AI try-on preview, booking form with calendar+time pickers, confetti confirmation
-- Tech dashboard with bottom nav: Home (KPIs + activity + booking link), Appointments (swipe actions), Leads (follow-up button), Settings (profile / 60 style toggles / availability / account)
-- Agency dashboard with sidebar: Overview (KPIs + churn risk + activity), Clients (searchable table), Analytics (4 recharts), Style Intelligence (4 intel sections), Billing (MRR chart + subscriptions)
+- Landing page with pulse-cta animation (box-shadow only, no layout jitter) + amber scarcity line
+- Full 7-step customer funnel with StyleImage fallback helper → 60 unique style images
+- Tech dashboard with bottom nav + loading states on Appts/Leads
+- Settings: 5 tabs (Page / Styles / Hours / **Automations** / Account)
+- Styles tab: search + 8 category filters + price field + photo upload button + 60 toggles
+- **Automation Center**: 7 togglable SMS automations with weekly stats card
+- Leads tab: Hot 🔥 / Warm 💛 / Cold 🧊 badges + separate "Win-back" section
+- Agency dashboard: sidebar + verifyAuth on mount (direct-URL nav works); Style Intel with drop-off %, competitor walking-in % bars, market gaps with requested counts
+
+## Bug fixes in this iteration
+- Fixed POST /api/bookings to actually persist all 3 SMS types (was only inserting booking_confirmation)
+- Fixed 60-style image variety: new StyleImage helper + curated unique Unsplash URLs + onError fallback
+- Fixed missing StyleImage import in CustomerFunnel.jsx (caused blank Step 4)
+- Fixed agency direct-URL session persistence via verifyAuth
+- Fixed pulse animation causing unclickable CTA (transform:scale → box-shadow-only pulse)
+- Replaced all TEST_ seed data with realistic Canadian names + Mia Anderson
 
 ## Test Credentials
 - **Agency:** harry@glowleads.com / agency123
