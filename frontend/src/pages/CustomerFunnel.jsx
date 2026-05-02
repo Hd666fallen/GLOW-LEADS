@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import StyleImage from "@/components/StyleImage";
 
 const CATEGORIES = [
   { key: "FINISHES", label: "Finishes" },
@@ -390,7 +391,7 @@ function StepSelect({ styles, categories, category, onCategory, onPick, onBack }
             data-testid={`style-card-${s.id}`}
           >
             <div className="aspect-square overflow-hidden">
-              <img src={s.image} alt={s.name} className="w-full h-full object-cover group-hover:scale-105 transition" />
+              <StyleImage src={s.image} category={s.category} alt={s.name} className="w-full h-full object-cover group-hover:scale-105 transition" />
             </div>
             <div className="p-4">
               <h3 className="font-serif text-lg font-semibold text-gray-900 leading-tight">{s.name}</h3>

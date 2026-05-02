@@ -1,0 +1,40 @@
+{
+  "summary": "Iteration 2 verification of GlowLeads bug fixes + new automation features. Backend: 14/14 new pytest cases pass (TEST_ data absence, Canadian cities + 5 techs incl Luxe Nails MTL & Nailed It YYC, GET/PUT /api/tech/me/automations persistence, POST /api/bookings creates >=3 sms_logs of types booking_confirmation/reminder_24h/reminder_1h, /tech/me/leads temperature hot|warm|cold + winback array, /tech/me/stats activity feed icon/text/when with mixed types, /agency/style-intel keys most_tried_not_booked+walking_in_with+market_gaps with correct sub-fields). Frontend: tech login persists token, dashboard renders 'Good evening, Sophie', 4 bottom-nav tabs work, Settings has all 5 sub-tabs (Page/Styles/Hours/Auto/Account) — Auto tab shows automation toggles + Automation Center copy, Styles tab shows '37 of 60 styles enabled' with 33 unique images out of 61. Leads tab shows Hot 🔥 (7) / Warm (4) / Cold (18) badges + winback-section testid present. Agency login + direct-URL nav to /agency/analytics keeps session and renders 9 recharts; Style Intel page exposes intel-dropoff/intel-walking-in/intel-trending/intel-gaps testids; Clients page lists all 5 Canadian techs; Billing shows MRR $345 + 5 active subs. Funnel: landing-scarcity '⚡ Only 3 spots left this week' visible on /. Found and fixed a CRITICAL ReferenceError on funnel Step 4 — see RCA.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_glowleads_v2.py",
+    "/app/test_reports/pytest/iter2_v2.xml"
+  ],
+  "action_items": [
+    "Consider wrapping the funnel in a React Error Boundary so a future undefined-symbol regression shows a friendly message rather than a blank screen.",
+    "Note: public /api/public/tech/sophie returns 37 enabled styles (out of 60 total). The funnel grid shows only the styles enabled by the tech — that matches Settings ('37 of 60 enabled') and is correct, but worth documenting for future testers who expect 60."
+  ],
+  "critical_code_review_comments": [
+    "CustomerFunnel.jsx was missing `import StyleImage from \"@/components/StyleImage\"` even though StepSelect renders <StyleImage>. This caused an Uncaught ReferenceError ('StyleImage is not defined') the moment a customer reached Step 4, killing the entire funnel. Adding an ESLint rule (no-undef is enabled by default in CRA) should have caught this — recommend running `yarn lint` in CI.",
+    "No top-level Error Boundary for CustomerFunnel/Tech/Agency dashboards — any thrown error renders a blank white page in production. Add a simple ErrorBoundary that shows a recovery toast.",
+    "server.py is still ~1000+ lines; growing automations/style-intel logic compound the case for splitting into routers."
+  ],
+  "updated_files": [
+    "/app/frontend/src/pages/CustomerFunnel.jsx (added missing StyleImage import)",
+    "/app/test_reports/iteration_2.json (this report)",
+    "/app/test_reports/pytest/iter2_v2.xml (junit)"
+  ],
+  "success_rate": {
+    "backend": "100% (14/14 new + 27/27 from iter1 still green)",
+    "frontend": "100% on all flows tested after the StyleImage import fix"
+  },
+  "test_credentials": "From /app/memory/test_credentials.md — Tech: sophie@glowleads.com / sophie123. Agency: harry@glowleads.com / agency123. Verified working.",
+  "seed_data_creation": "Test created one non-TEST 'Auto Sms <hex>' lead+booking under Sophie to verify automations_scheduled=3 and sms_logs persistence (server has no DELETE endpoint so the row remains; harmless).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All required iteration-2 features verified working. Funnel Step 4 was BROKEN due to missing import — fix applied (one line) and re-verified Step 4 (category tabs + style cards) AND Step 5 (AI try-on result image) render correctly. Default funnel category is FINISHES with 7 enabled styles for Sophie. To exercise more cards, click successive category-tab-* testids (FINISHES/FRENCH/OMBRE/NAIL_ART/EMBELLISHMENTS/COLORS/SPECIALTY). For uniqueness verification, the Tech Settings>Styles tab is a better surface — it lists all 60 styles regardless of enabled flag and showed 33 unique images out of 61 (well above the >=10 distinct requirement).",
+  "rca of the issue": "BUG: Customer funnel goes blank on Step 4 (style grid). RCA: ReferenceError 'StyleImage is not defined' inside <StepSelect>. /app/frontend/src/pages/CustomerFunnel.jsx renders <StyleImage src=... category=... /> at line 393 but never imports the component. The component is defined in /app/frontend/src/components/StyleImage.jsx (and IS imported by TechDashboard.jsx, which is why Settings>Styles works). Reproduction: Open /try/sophie → click 'Try It Free' → upload a JPG → after detect step transitions, page becomes blank with a React 'error in StepSelect' warning; pageerror surfaces 'ReferenceError: StyleImage is not defined' at bundle.js:119342. Mitigation: Added `import StyleImage from \"@/components/StyleImage\";` after the existing imports in CustomerFunnel.jsx (line 15). Verified after fix: 7 category-tab-* testids visible, 7 style-card-* cards render, clicking a card advances to Step 5 and result-preview-image renders within 15s (AI or fallback). No console errors after fix."
+}

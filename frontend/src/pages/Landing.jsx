@@ -45,6 +45,10 @@ export default function Landing() {
                 I&apos;m a nail tech
               </Link>
             </div>
+            <p className="mt-4 flex items-center gap-2 text-base font-semibold text-amber-600" data-testid="landing-scarcity">
+              <span className="inline-block w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+              ⚡ Only 3 spots left this week
+            </p>
             <div className="mt-8 text-sm text-gray-600">
               <p>Demo logins:</p>
               <p className="mt-1"><span className="font-semibold">Tech:</span> sophie@glowleads.com / sophie123</p>

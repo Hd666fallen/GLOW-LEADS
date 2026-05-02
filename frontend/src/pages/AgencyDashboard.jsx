@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Routes, Route, NavLink, useNavigate, Navigate } from "react-router-dom";
-import { api, currentUser, clearAuth } from "@/lib/api";
+import { api, currentUser, currentToken, clearAuth, verifyAuth } from "@/lib/api";
 import {
   LayoutDashboard, Users, BarChart3, Sparkles, CreditCard, Settings as SettingsIcon,
   LogOut, AlertTriangle, TrendingUp, DollarSign, ShoppingBag, Zap,
@@ -12,11 +12,22 @@ const COLORS = ["#00B4D8", "#C2185B", "#FFD700", "#8ED6FB", "#FF4D9D", "#6DD5ED"
 
 export default function AgencyDashboard() {
   const navigate = useNavigate();
-  const user = currentUser();
+  const [user, setUser] = useState(currentUser());
+  const [authChecked, setAuthChecked] = useState(false);
+
   useEffect(() => {
-    if (!user || user.role !== "agency") navigate("/agency/login");
-  }, [user, navigate]);
-  if (!user || user.role !== "agency") return null;
+    const token = currentToken();
+    if (!token) { navigate("/agency/login"); return; }
+    verifyAuth().then((u) => {
+      if (!u || u.role !== "agency") { navigate("/agency/login"); return; }
+      setUser(u);
+      setAuthChecked(true);
+    });
+  }, [navigate]);
+
+  if (!authChecked || !user || user.role !== "agency") {
+    return <div className="agency-theme flex items-center justify-center h-screen text-sm text-[#778DA9]">Loading...</div>;
+  }
 
   return (
     <div className="agency-theme flex h-screen overflow-hidden" data-testid="agency-dashboard">
@@ -260,18 +271,87 @@ function StyleIntel() {
       <h1 className="text-2xl font-bold text-white mb-1">Style Intelligence</h1>
       <p className="text-sm text-[#778DA9] mb-6">Market insights across all clients</p>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <IntelSection title="Trending this week" items={d.trending} valueKey="count" valueLabel="tried" />
-        <IntelSection title="Most tried but NOT booked" items={d.most_tried_not_booked} valueKey="tried" valueLabel="tried" />
-        <IntelSection title="Most detected (customers already have)" items={d.most_detected} valueKey="count" valueLabel="detected" />
-        <IntelSection title="Market gaps (no client offers)" items={d.market_gaps} />
+        <DropOffSection items={d.most_tried_not_booked} />
+        <WalkingInSection items={d.walking_in_with} />
+        <IntelSection title="Trending this week" items={d.trending} valueKey="count" valueLabel="tried" testid="intel-trending" />
+        <GapsSection items={d.market_gaps} />
       </div>
     </div>
   );
 }
 
-function IntelSection({ title, items, valueKey, valueLabel }) {
+function DropOffSection({ items }) {
   return (
-    <div className="agency-card p-5">
+    <div className="agency-card p-5" data-testid="intel-dropoff">
+      <h3 className="text-sm font-semibold text-white mb-1">Most tried but NOT booked</h3>
+      <p className="text-xs text-[#778DA9] mb-4">Opportunity gaps — customers want these but aren&apos;t converting</p>
+      <div className="space-y-3">
+        {(items || []).slice(0, 6).map((it, i) => {
+          const dot = it.dropoff_pct >= 60 ? "🔴" : it.dropoff_pct >= 40 ? "🟡" : "🟢";
+          return (
+            <div key={i} className="flex items-center gap-3">
+              <img src={it.image} alt="" className="w-10 h-10 rounded-lg object-cover" />
+              <div className="flex-1">
+                <p className="text-sm text-white">{it.style_name}</p>
+                <p className="text-xs text-[#778DA9]">tried {it.tried}x · booked {it.booked}x</p>
+              </div>
+              <span className="text-xs text-amber-300">{dot} {it.dropoff_pct}% drop-off</span>
+            </div>
+          );
+        })}
+        {(!items || items.length === 0) && <p className="text-xs text-[#778DA9]">Not enough data yet</p>}
+      </div>
+    </div>
+  );
+}
+
+function WalkingInSection({ items }) {
+  return (
+    <div className="agency-card p-5" data-testid="intel-walking-in">
+      <h3 className="text-sm font-semibold text-white mb-1">What clients are walking in WITH</h3>
+      <p className="text-xs text-[#778DA9] mb-4">Competitor intel — what nails customers already have</p>
+      <div className="space-y-3">
+        {(items || []).map((it, i) => (
+          <div key={i}>
+            <div className="flex items-center justify-between text-sm text-white mb-1">
+              <span>{it.label}</span>
+              <span className="text-[#00B4D8]">{it.pct}%</span>
+            </div>
+            <div className="h-2 bg-[#0D1B2A] rounded-full overflow-hidden">
+              <div className="h-full bg-gradient-to-r from-[#00B4D8] to-[#8ED6FB]" style={{ width: `${it.pct}%` }} />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function GapsSection({ items }) {
+  return (
+    <div className="agency-card p-5" data-testid="intel-gaps">
+      <h3 className="text-sm font-semibold text-white mb-1">Market gaps</h3>
+      <p className="text-xs text-[#778DA9] mb-4">Styles customers want that no-one offers</p>
+      <div className="space-y-3">
+        {(items || []).slice(0, 6).map((it, i) => (
+          <div key={i} className="flex items-center gap-3">
+            <img src={it.image} alt="" className="w-10 h-10 rounded-lg object-cover" />
+            <div className="flex-1">
+              <p className="text-sm text-white">{it.style_name}</p>
+              <p className="text-xs text-[#778DA9]">{it.category}</p>
+            </div>
+            <span className="text-xs text-[#FFD700]">requested {it.requested}x · {it.tech_count} tech{it.tech_count === 1 ? "" : "s"} offer</span>
+          </div>
+        ))}
+        {(!items || items.length === 0) && <p className="text-xs text-[#778DA9]">No gaps detected</p>}
+      </div>
+    </div>
+  );
+}
+
+function IntelSection({ title, items, valueKey, valueLabel, testid }) {
+  return (
+    <div className="agency-card p-5" data-testid={testid}>
       <h3 className="text-sm font-semibold text-white mb-4">{title}</h3>
       <div className="space-y-3">
         {(items || []).map((it, i) => (

@@ -30,6 +30,22 @@ export const currentUser = () => {
   }
 };
 
+export const currentToken = () => localStorage.getItem("glow_token");
+
+/** Verify the stored token is still valid by hitting /auth/me. */
+export const verifyAuth = async () => {
+  const token = currentToken();
+  if (!token) return null;
+  try {
+    const r = await api.get("/auth/me");
+    localStorage.setItem("glow_user", JSON.stringify(r.data));
+    return r.data;
+  } catch {
+    clearAuth();
+    return null;
+  }
+};
+
 export const fileToBase64 = (file) =>
   new Promise((resolve, reject) => {
     const reader = new FileReader();
