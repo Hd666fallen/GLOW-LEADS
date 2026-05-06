@@ -1,0 +1,35 @@
+{
+  "summary": "Tested rebuilt GlowLeads funnel (Upload→Shape→Design→Colour→AI→Book). Backend: 13/14 pytest cases pass. Frontend: Steps 1-4 work end-to-end with all required data-testids. Found 1 critical backend bug (booking 500 when only design_id is sent) and 1 content issue (3 shape cards reuse non-nail pexels images).",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "POST /api/bookings", "issue": "Returns 500 when only design_id is sent (no style_id). In server.py around lines 588/600/612 the SMS automation block references style['name'] which is None when only design_id is provided. TypeError: 'NoneType' object is not subscriptable. Fix: use the local `label` variable computed at line 542 instead of style['name'] in all three sms_to_log entries.", "priority": "CRITICAL"}
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Step 2 — Choose your nail shape", "issues": ["Shape cards 'Round', 'Stiletto', and 'Squoval' use Pexels images that show hair-salon/people scenes, not actual nail shapes. Specifically images pexels-photo-3993449 (round+squoval, same image, hair salon shampoo), pexels-photo-3997385 (stiletto, salon worker), pexels-photo-704815 (square). Each shape card should have a clear close-up of that nail shape. Round and Squoval also share the EXACT same image URL — duplication. Update funnel_data.SHAPES with proper close-up nail photos."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_funnel_v3.py", "/app/test_reports/pytest/iter3_funnel.xml"],
+  "action_items": [
+    "FIX BLOCKER: /api/bookings 500 when only design_id is sent. Replace style['name'] in SMS automation block (server.py ~lines 588, 600, 612) with the already-computed `label` variable so design-only bookings work.",
+    "Update funnel_data.SHAPES — replace shape card images for round, square, squoval, stiletto (and verify coffin/almond) with actual close-up nail-shape photos. Round and Squoval currently share the identical image URL."
+  ],
+  "critical_code_review_comments": [
+    "server.py create_booking SMS block hardcodes style['name'] even though design_id flow is supported — root cause of 500.",
+    "server.py is 1571 lines — should be split into routers (auth, funnel, ai, tech, agency, seed) per the >700-line guideline.",
+    "Detect-shape and try-on correctly fall back gracefully on AI failures (return 200) — good.",
+    "All MongoDB reads exclude _id properly. JWT/bcrypt look correct. CORS uses env var."
+  ],
+  "updated_files": ["/app/backend/tests/test_funnel_v3.py"],
+  "success_rate": {"backend": "93% (13/14)", "frontend": "100% on tested flow (Steps 1-4 + testids)"},
+  "test_credentials": "sophie@glowleads.com / sophie123 (tech), harry@glowleads.com / agency123 (agency) — both verified",
+  "seed_data_creation": "Used existing seed; created TEST_FunnelLead and (attempted) TEST_FunnelBooking via API. The booking insert never persisted because of the 500 crash.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend funnel_config + detect-shape + try-on (design_id and legacy style_id) + leads(design_id) all pass. The single failing case is /api/bookings with only design_id (no style_id) — fix is small (use `label` variable instead of style['name']). Frontend Steps 1→4 with all data-testids verified end-to-end on /try/sophie using a 1x1 PNG upload. Steps 5 (AI result preview) and 6 (booking sheet) NOT exercised in browser due to AI generation latency (~30-60s) and to skip Stripe/calendar mocks; backend equivalent endpoints already covered by pytest. Sanity logins for sophie + harry pass. Shape image quality is poor (3 cards reuse non-nail or duplicate Pexels images).",
+  "rca of the issue": "POST /api/bookings → 500: server.py create_booking() computes a fallback `label` and `price` from design_id when style_id is absent, but the SMS automation generation block (lines ~588, 600, 612) still references style['name']. When the customer only picks design_id (the new funnel flow), style is None and indexing it raises TypeError. Reproduction: POST /api/bookings with {tech_slug:'sophie', name:'X', phone:'+1...', design_id:'chrome-mirror', shape_id:'almond', date:'2026-02-15', time:'14:00'}. Mitigation: replace `style['name']` with `label` (or `(style or design)['name'] if style else label`) in the three sms body f-strings."
+}

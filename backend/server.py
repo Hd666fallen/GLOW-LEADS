@@ -24,7 +24,7 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from dotenv import load_dotenv
 
 from styles_data import STYLES, STYLE_MAP
-from vibes_data import VIBES, VIBE_MAP, EXTENDED_PALETTE, STYLE_GROUPS
+from funnel_data import SHAPES, SHAPE_MAP, DESIGN_GROUPS, DESIGN_MAP, COLOR_GROUPS
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
@@ -124,8 +124,10 @@ class DetectIn(BaseModel):
 
 class TryOnIn(BaseModel):
     image_base64: str
-    style_id: str
     tech_slug: str
+    style_id: Optional[str] = None
+    design_id: Optional[str] = None
+    shape_id: Optional[str] = None
     color_hex: Optional[str] = None
     color_name: Optional[str] = None
 
@@ -134,10 +136,11 @@ class LeadIn(BaseModel):
     tech_slug: str
     name: str
     phone: Optional[str] = ""
-    style_id: str
+    style_id: Optional[str] = None
+    design_id: Optional[str] = None
+    shape_id: Optional[str] = None
     preview_image: Optional[str] = None
     detected_style_id: Optional[str] = None
-    vibe_id: Optional[str] = None
     color_hex: Optional[str] = None
     color_name: Optional[str] = None
 
@@ -147,16 +150,21 @@ class BookingIn(BaseModel):
     name: str
     phone: str
     email: Optional[str] = ""
-    style_id: str
-    date: str  # ISO date "YYYY-MM-DD"
-    time: str  # "14:30"
+    style_id: Optional[str] = None
+    design_id: Optional[str] = None
+    shape_id: Optional[str] = None
+    date: str
+    time: str
     preview_image: Optional[str] = None
     lead_id: Optional[str] = None
-    vibe_id: Optional[str] = None
     color_hex: Optional[str] = None
     color_name: Optional[str] = None
     color_brand: Optional[str] = None
     notes: Optional[str] = ""
+
+
+class ShapeDetectIn(BaseModel):
+    image_base64: str
 
 
 class AppointmentStatusUpdate(BaseModel):
@@ -294,6 +302,16 @@ async def list_styles():
     return {"styles": STYLES}
 
 
+@api.get("/funnel/config")
+async def funnel_config():
+    """Shapes + design groups + color groups for the new funnel flow."""
+    return {
+        "shapes": SHAPES,
+        "design_groups": DESIGN_GROUPS,
+        "color_groups": COLOR_GROUPS,
+    }
+
+
 @api.get("/public/tech/{slug}")
 async def get_public_tech(slug: str):
     user = await db.users.find_one({"slug": slug, "role": "tech"}, {"_id": 0, "password_hash": 0})
@@ -386,10 +404,19 @@ async def ai_detect_style(data: DetectIn):
 
 @api.post("/ai/try-on")
 async def ai_try_on(data: TryOnIn):
-    """Apply the selected nail style to the user's uploaded hand photo using Gemini Nano Banana."""
-    style = STYLE_MAP.get(data.style_id)
-    if not style:
-        raise HTTPException(status_code=400, detail="Unknown style id")
+    """Apply the selected nail design (or legacy style) to the user's hand photo using Gemini Nano Banana."""
+    # Resolve the visual style description from either design_id (new) or style_id (legacy)
+    design = DESIGN_MAP.get(data.design_id) if data.design_id else None
+    style = STYLE_MAP.get(data.style_id) if data.style_id else None
+    shape = SHAPE_MAP.get(data.shape_id) if data.shape_id else None
+
+    if not design and not style:
+        raise HTTPException(status_code=400, detail="design_id or style_id is required")
+
+    fallback_image = (design or style)["image"] if (design or style) else None
+    style_name = (design or style)["label" if design else "name"]
+    style_hint = (style.get("prompt_hint") if style else None) or design["label"].lower()
+
     raw_b64 = _decode_image(data.image_base64)
     try:
         from emergentintegrations.llm.chat import LlmChat, UserMessage, ImageContent
@@ -402,18 +429,15 @@ async def ai_try_on(data: TryOnIn):
         )
         chat.with_model("gemini", "gemini-3.1-flash-image-preview").with_params(modalities=["image", "text"])
 
+        shape_text = f"{shape['label'].lower()} shaped" if shape else ""
+        color_text = ""
+        if data.color_hex:
+            color_text = f" using the colour {data.color_name or data.color_hex} (hex {data.color_hex})"
         prompt = (
             f"Edit this exact photo of a hand. Keep the hand, skin tone, lighting and background identical. "
-            f"Only change the fingernails to show this nail style: {style['prompt_hint']}. "
-        )
-        if data.color_hex:
-            color_desc = data.color_name or data.color_hex
-            prompt += (
-                f"Use the colour {color_desc} (hex {data.color_hex}) as the dominant nail polish tone. "
-            )
-        prompt += (
-            "The nails should look like a professional salon manicure, ultra realistic, photographic, "
-            "sharp focus, natural shadows. Do not change anything else about the image."
+            f"Only change the fingernails to show {shape_text} nails in {style_name} style ({style_hint}){color_text}. "
+            f"Photorealistic, professional nail salon quality, sharp focus, natural shadows. "
+            f"Same hand preserved, high quality. Do not change anything else about the image."
         )
         msg = UserMessage(text=prompt, file_contents=[ImageContent(raw_b64)])
         text, images = await asyncio.wait_for(chat.send_message_multimodal_response(msg), timeout=90)
@@ -421,14 +445,61 @@ async def ai_try_on(data: TryOnIn):
             img = images[0]
             mime = img.get("mime_type", "image/png")
             data_url = f"data:{mime};base64,{img['data']}"
-            return {"preview": data_url, "source": "ai", "style": style}
+            return {"preview": data_url, "source": "ai", "design": design, "style": style, "shape": shape}
         logger.warning("AI try-on returned no image; text=%s", (text or "")[:200])
     except asyncio.TimeoutError:
         logger.warning("AI try-on timed out")
     except Exception as e:
         logger.exception("AI try-on failed: %s", e)
-    # Fallback: return the style's portfolio/stock image
-    return {"preview": style["image"], "source": "fallback", "style": style}
+    return {"preview": fallback_image, "source": "fallback", "design": design, "style": style, "shape": shape}
+
+
+@api.post("/ai/detect-shape")
+async def ai_detect_shape(data: ShapeDetectIn):
+    """Detect the customer's current nail shape + length from their hand photo."""
+    raw_b64 = _decode_image(data.image_base64)
+    try:
+        from emergentintegrations.llm.chat import LlmChat, UserMessage, ImageContent
+
+        api_key = os.environ["EMERGENT_LLM_KEY"]
+        chat = LlmChat(
+            api_key=api_key,
+            session_id=f"shape-{uuid.uuid4()}",
+            system_message=(
+                "You are a professional nail artist. Identify the nail shape and length from the photo. "
+                "Reply ONLY with JSON like {\"shape\": \"<round|square|coffin|almond|stiletto|squoval>\", "
+                "\"length\": \"<short|medium|long>\"}. If you can't tell, use \"unknown\" for either."
+            ),
+        )
+        chat.with_model("gemini", "gemini-3.1-flash-image-preview")
+        msg = UserMessage(
+            text="Identify the nail shape and length. Reply with JSON only.",
+            file_contents=[ImageContent(raw_b64)],
+        )
+        text, _ = await asyncio.wait_for(chat.send_message_multimodal_response(msg), timeout=45)
+        shape_id = None
+        length = "medium"
+        try:
+            import json as _json
+            m = re.search(r"\{.*\}", text or "", re.DOTALL)
+            if m:
+                obj = _json.loads(m.group(0))
+                cand = (obj.get("shape") or "").lower().strip()
+                if cand in SHAPE_MAP:
+                    shape_id = cand
+                length = (obj.get("length") or "medium").lower().strip() or "medium"
+        except Exception:
+            pass
+        return {
+            "shape_id": shape_id,
+            "shape_label": SHAPE_MAP[shape_id]["label"] if shape_id else None,
+            "length": length,
+        }
+    except asyncio.TimeoutError:
+        return {"shape_id": None, "shape_label": None, "length": "medium"}
+    except Exception as e:
+        logger.exception("Shape detect failed: %s", e)
+        return {"shape_id": None, "shape_label": None, "length": "medium"}
 
 
 # ---------- Lead & Booking routes ----------
@@ -464,9 +535,14 @@ async def create_lead(data: LeadIn):
 @api.post("/bookings")
 async def create_booking(data: BookingIn):
     tech = await _resolve_tech_by_slug(data.tech_slug)
-    style = STYLE_MAP.get(data.style_id)
-    if not style:
-        raise HTTPException(status_code=400, detail="Unknown style id")
+    design = DESIGN_MAP.get(data.design_id) if data.design_id else None
+    style = STYLE_MAP.get(data.style_id) if data.style_id else None
+    if not design and not style:
+        raise HTTPException(status_code=400, detail="design_id or style_id is required")
+    label = design["label"] if design else style["name"]
+    category = design["group_label"] if design else style.get("category", "")
+    price = (design["price_range"]["low"] if design else style["price_range"]["low"])
+    image = data.preview_image or (design["image"] if design else style["image"])
     appt = {
         "id": str(uuid.uuid4()),
         "tech_id": tech["id"],
@@ -474,11 +550,12 @@ async def create_booking(data: BookingIn):
         "client_name": data.name,
         "client_phone": data.phone,
         "client_email": data.email or "",
-        "style_id": data.style_id,
-        "style_name": style["name"],
-        "style_category": style["category"],
-        "preview_image": data.preview_image or style["image"],
-        "vibe_id": data.vibe_id,
+        "style_id": data.style_id or data.design_id,
+        "design_id": data.design_id,
+        "shape_id": data.shape_id,
+        "style_name": label,
+        "style_category": category,
+        "preview_image": image,
         "color_hex": data.color_hex,
         "color_name": data.color_name,
         "color_brand": data.color_brand,
@@ -486,7 +563,7 @@ async def create_booking(data: BookingIn):
         "date": data.date,
         "time": data.time,
         "status": "confirmed",
-        "price": style["price_range"]["low"],
+        "price": price,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     await db.appointments.insert_one(dict(appt))
