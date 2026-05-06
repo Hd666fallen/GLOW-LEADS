@@ -24,6 +24,7 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from dotenv import load_dotenv
 
 from styles_data import STYLES, STYLE_MAP
+from vibes_data import VIBES, VIBE_MAP, EXTENDED_PALETTE, STYLE_GROUPS
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
@@ -125,6 +126,8 @@ class TryOnIn(BaseModel):
     image_base64: str
     style_id: str
     tech_slug: str
+    color_hex: Optional[str] = None
+    color_name: Optional[str] = None
 
 
 class LeadIn(BaseModel):
@@ -134,17 +137,26 @@ class LeadIn(BaseModel):
     style_id: str
     preview_image: Optional[str] = None
     detected_style_id: Optional[str] = None
+    vibe_id: Optional[str] = None
+    color_hex: Optional[str] = None
+    color_name: Optional[str] = None
 
 
 class BookingIn(BaseModel):
     tech_slug: str
     name: str
     phone: str
+    email: Optional[str] = ""
     style_id: str
     date: str  # ISO date "YYYY-MM-DD"
     time: str  # "14:30"
     preview_image: Optional[str] = None
     lead_id: Optional[str] = None
+    vibe_id: Optional[str] = None
+    color_hex: Optional[str] = None
+    color_name: Optional[str] = None
+    color_brand: Optional[str] = None
+    notes: Optional[str] = ""
 
 
 class AppointmentStatusUpdate(BaseModel):
@@ -393,8 +405,15 @@ async def ai_try_on(data: TryOnIn):
         prompt = (
             f"Edit this exact photo of a hand. Keep the hand, skin tone, lighting and background identical. "
             f"Only change the fingernails to show this nail style: {style['prompt_hint']}. "
-            f"The nails should look like a professional salon manicure, ultra realistic, photographic, "
-            f"sharp focus, natural shadows. Do not change anything else about the image."
+        )
+        if data.color_hex:
+            color_desc = data.color_name or data.color_hex
+            prompt += (
+                f"Use the colour {color_desc} (hex {data.color_hex}) as the dominant nail polish tone. "
+            )
+        prompt += (
+            "The nails should look like a professional salon manicure, ultra realistic, photographic, "
+            "sharp focus, natural shadows. Do not change anything else about the image."
         )
         msg = UserMessage(text=prompt, file_contents=[ImageContent(raw_b64)])
         text, images = await asyncio.wait_for(chat.send_message_multimodal_response(msg), timeout=90)
@@ -454,10 +473,16 @@ async def create_booking(data: BookingIn):
         "tech_slug": tech["slug"],
         "client_name": data.name,
         "client_phone": data.phone,
+        "client_email": data.email or "",
         "style_id": data.style_id,
         "style_name": style["name"],
         "style_category": style["category"],
         "preview_image": data.preview_image or style["image"],
+        "vibe_id": data.vibe_id,
+        "color_hex": data.color_hex,
+        "color_name": data.color_name,
+        "color_brand": data.color_brand,
+        "notes": data.notes or "",
         "date": data.date,
         "time": data.time,
         "status": "confirmed",
