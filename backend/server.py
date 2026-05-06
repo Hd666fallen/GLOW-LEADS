@@ -585,7 +585,7 @@ async def create_booking(data: BookingIn):
             "type": "booking_confirmation",
             "body": (
                 f"Hey {data.name}! You're booked with {tech['business_name']} for "
-                f"{style['name']} nails on {data.date} at {data.time}. Can't wait to see you!"
+                f"{label} nails on {data.date} at {data.time}. Can't wait to see you!"
             ),
             "created_at": now_utc.isoformat(),
             "scheduled_for": now_utc.isoformat(),
@@ -597,7 +597,7 @@ async def create_booking(data: BookingIn):
             "type": "reminder_24h",
             "body": (
                 f"Hey {data.name}, just a reminder -- you're booked with {tech['business_name']} "
-                f"tomorrow at {data.time} for {style['name']} nails. Need to reschedule? Reply RESCHEDULE"
+                f"tomorrow at {data.time} for {label} nails. Need to reschedule? Reply RESCHEDULE"
             ),
             "created_at": when.isoformat(),
             "scheduled_for": when.isoformat(),
@@ -609,7 +609,7 @@ async def create_booking(data: BookingIn):
             "type": "reminder_1h",
             "body": (
                 f"See you in 1 hour {data.name}! {tech['business_name']} is ready for your "
-                f"{style['name']} nails."
+                f"{label} nails."
             ),
             "created_at": when.isoformat(),
             "scheduled_for": when.isoformat(),

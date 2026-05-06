@@ -24,6 +24,16 @@ Full-stack AI-powered lead generation SaaS platform for nail technicians with 3 
 - Swipe-style appointment status updates
 - Auto-lead capture when user reaches try-on step but doesn't book
 
+## Iteration 3 — Funnel rebuilt as Upload → Shape → Design → Colour → AI → Book
+- New `/app/backend/funnel_data.py`: 6 SHAPES (with detected-shape highlighting), 7 DESIGN_GROUPS (50 designs total with badges Most Popular/Trending/Classic/Fan Fave), 9 COLOR_GROUPS (200 colors with hex + name + brand)
+- New endpoints: `GET /api/funnel/config`, `POST /api/ai/detect-shape`
+- AI try-on now accepts `design_id` (preferred) or `style_id` (legacy) + `shape_id` + `color_hex`/`color_name` — all optional except design/style
+- Bookings + leads accept design_id + shape_id + color details (price taken from design's price_range)
+- Customer funnel completely rewritten: persistent hand photo across session, bottom-sheet "change shape/design/colour" flows with confirm dialogs, instant color preview on hand photo
+- Step 4 colour picker has 9 horizontal-scroll color rows (one per family) with sticky bottom bar showing selected name + brand
+- Booking form pre-filled with chosen shape + design + colour as a chip
+- Fixed booking 500 when only design_id provided (was using `style['name']` — now uses computed `label`)
+
 ## What's Been Implemented (2026-02)
 ### Backend
 - JWT login/register (`/api/auth/*`) with `verifyAuth`-safe token check

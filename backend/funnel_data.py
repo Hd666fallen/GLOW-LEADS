@@ -44,7 +44,7 @@ SHAPES = [
         "id": "squoval",
         "label": "Squoval",
         "description": "Best of both worlds",
-        "image": "https://images.pexels.com/photos/3993449/pexels-photo-3993449.jpeg?auto=compress&cs=tinysrgb&w=600",
+        "image": "https://images.pexels.com/photos/3997390/pexels-photo-3997390.jpeg?auto=compress&cs=tinysrgb&w=600",
         "keywords": ["squoval"],
     },
 ]
