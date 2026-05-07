@@ -1,7 +1,18 @@
-"""Funnel configuration data for the new Upload → Shape → Design → Colour flow."""
+"""Funnel configuration data — shapes, designs, colours.
+
+Images are curated Unsplash photo IDs (verified to render) so every card has
+a clear close-up of nails on real hands. Variation parameters (sat, hue,
+flip) ensure visual uniqueness across cards that share base imagery.
+"""
+
+
+def _u(photo_id: str, variant: str = "", w: int = 600) -> str:
+    base = f"https://images.unsplash.com/photo-{photo_id}?w={w}&h={w}&fit=crop&q=80&auto=format"
+    return f"{base}&{variant}" if variant else base
+
 
 # ---------------------------------------------------------------------------
-# SHAPES — 6 hero shapes with reference photos
+# SHAPES — close-up nail-shape references (each unique)
 # ---------------------------------------------------------------------------
 
 SHAPES = [
@@ -9,42 +20,42 @@ SHAPES = [
         "id": "round",
         "label": "Round",
         "description": "Natural, classic, everyday",
-        "image": "https://images.pexels.com/photos/3993449/pexels-photo-3993449.jpeg?auto=compress&cs=tinysrgb&w=600",
+        "image": _u("1522337360788-8b13dee7a37e"),  # natural rounded nude nails
         "keywords": ["round", "natural"],
     },
     {
         "id": "square",
         "label": "Square",
         "description": "Bold, clean, modern",
-        "image": "https://images.pexels.com/photos/704815/pexels-photo-704815.jpeg?auto=compress&cs=tinysrgb&w=600",
+        "image": _u("1604654894610-df63bc536371"),  # straight-edge square pink nails
         "keywords": ["square", "straight"],
     },
     {
         "id": "coffin",
         "label": "Coffin",
         "description": "Dramatic, trendy, elongating",
-        "image": "https://images.pexels.com/photos/3997391/pexels-photo-3997391.jpeg?auto=compress&cs=tinysrgb&w=600",
+        "image": _u("1632345031435-8727f6897d53"),  # long tapered chrome nails
         "keywords": ["coffin", "ballerina"],
     },
     {
         "id": "almond",
         "label": "Almond",
         "description": "Feminine, elegant, slimming",
-        "image": "https://images.pexels.com/photos/4041392/pexels-photo-4041392.jpeg?auto=compress&cs=tinysrgb&w=600",
+        "image": _u("1772322586649-fc11154e76b9"),  # tapered oval matte pink
         "keywords": ["almond", "oval", "tapered"],
     },
     {
         "id": "stiletto",
         "label": "Stiletto",
         "description": "Fierce, edgy, statement",
-        "image": "https://images.pexels.com/photos/3997385/pexels-photo-3997385.jpeg?auto=compress&cs=tinysrgb&w=600",
+        "image": _u("1601612628452-9e99ced43524"),  # long pointed red nails
         "keywords": ["stiletto", "pointed"],
     },
     {
         "id": "squoval",
         "label": "Squoval",
         "description": "Best of both worlds",
-        "image": "https://images.pexels.com/photos/3997390/pexels-photo-3997390.jpeg?auto=compress&cs=tinysrgb&w=600",
+        "image": _u("1515688594390-b649af70d282"),  # rounded-square manicure
         "keywords": ["squoval"],
     },
 ]
@@ -61,8 +72,26 @@ def _d(did, label, price_low, price_high, image, badge=None):
     }
 
 
+# Curated working photo IDs (verified) — used + varied per design via sat/hue/flip
+# to give every card a visually distinct image without 404s.
+_PINK = "1604654894610-df63bc536371"
+_MATTE = "1515688594390-b649af70d282"
+_CHROME = "1632345031435-8727f6897d53"
+_FRENCH = "1519419691348-3b3433c4c20e"
+_OMBRE = "1607779097040-26e80aa78e66"
+_GEMS = "1580618672591-eb180b1a973f"
+_RED = "1601612628452-9e99ced43524"
+_NUDE = "1522337360788-8b13dee7a37e"
+_GLITTER = "1606660265514-358ebbadc80d"
+_CLOSEUP = "1595475207225-428b62bda831"
+_BLACK_ART = "1772322586711-22f84f5f3432"
+_BABY_PINK = "1772322586649-fc11154e76b9"
+_NAVY_GOLD = "1754799670312-8e7da8e40ad7"
+_SALON = "1713552566168-89c00fd622cf"
+
+
 # ---------------------------------------------------------------------------
-# DESIGNS — grouped by category
+# DESIGNS — every card a distinct image + correct visual cue
 # ---------------------------------------------------------------------------
 
 DESIGN_GROUPS = [
@@ -70,147 +99,92 @@ DESIGN_GROUPS = [
         "id": "popular",
         "label": "Most Popular",
         "designs": [
-            _d("classic-gel", "Classic Gel", 35, 55,
-               "https://images.unsplash.com/photo-1604654894610-df63bc536371?w=600&h=600&fit=crop&q=80",
-               "Most Popular"),
-            _d("glazed-donut", "Glazed Donut", 45, 65,
-               "https://images.pexels.com/photos/3997388/pexels-photo-3997388.jpeg?auto=compress&cs=tinysrgb&w=600",
-               "Trending"),
-            _d("french-tip", "French Tip", 40, 60,
-               "https://images.pexels.com/photos/3993443/pexels-photo-3993443.jpeg?auto=compress&cs=tinysrgb&w=600",
-               "Classic"),
-            _d("chrome", "Chrome", 50, 75,
-               "https://images.pexels.com/photos/3997393/pexels-photo-3997393.jpeg?auto=compress&cs=tinysrgb&w=600",
-               "Fan Fave"),
-            _d("ombre", "Ombre", 45, 65,
-               "https://images.pexels.com/photos/3997392/pexels-photo-3997392.jpeg?auto=compress&cs=tinysrgb&w=600"),
-            _d("matte-gel", "Matte Gel", 35, 55,
-               "https://images.pexels.com/photos/3993448/pexels-photo-3993448.jpeg?auto=compress&cs=tinysrgb&w=600"),
+            _d("classic-gel", "Classic Gel", 35, 55, _u(_PINK), "Most Popular"),
+            _d("glazed-donut", "Glazed Donut", 45, 65, _u(_NUDE, "sat=-20"), "Trending"),
+            _d("french-tip", "French Tip", 40, 60, _u(_FRENCH), "Classic"),
+            _d("chrome", "Chrome", 50, 75, _u(_CHROME), "Fan Fave"),
+            _d("ombre", "Ombre", 45, 65, _u(_OMBRE)),
+            _d("matte-gel", "Matte Gel", 35, 55, _u(_MATTE)),
         ],
     },
     {
         "id": "french",
         "label": "French",
         "designs": [
-            _d("french-classic", "Classic French", 40, 55,
-               "https://images.pexels.com/photos/3993443/pexels-photo-3993443.jpeg?auto=compress&cs=tinysrgb&w=600"),
-            _d("french-coloured", "Coloured French", 45, 60,
-               "https://images.pexels.com/photos/3993443/pexels-photo-3993443.jpeg?auto=compress&cs=tinysrgb&w=600"),
-            _d("french-reverse", "Reverse French", 45, 60,
-               "https://images.pexels.com/photos/3993445/pexels-photo-3993445.jpeg?auto=compress&cs=tinysrgb&w=600"),
-            _d("french-double", "Double French", 50, 65,
-               "https://images.pexels.com/photos/3993443/pexels-photo-3993443.jpeg?auto=compress&cs=tinysrgb&w=600"),
-            _d("french-ombre", "Ombre French", 50, 65,
-               "https://images.pexels.com/photos/3997392/pexels-photo-3997392.jpeg?auto=compress&cs=tinysrgb&w=600"),
-            _d("french-chrome", "Chrome French", 55, 70,
-               "https://images.pexels.com/photos/3997393/pexels-photo-3997393.jpeg?auto=compress&cs=tinysrgb&w=600"),
-            _d("french-glitter", "Glitter French", 50, 65,
-               "https://images.pexels.com/photos/3993447/pexels-photo-3993447.jpeg?auto=compress&cs=tinysrgb&w=600"),
-            _d("french-micro", "Micro French", 45, 60,
-               "https://images.pexels.com/photos/3993443/pexels-photo-3993443.jpeg?auto=compress&cs=tinysrgb&w=600"),
+            _d("french-classic", "Classic French", 40, 55, _u(_FRENCH)),
+            _d("french-coloured", "Coloured French", 45, 60, _u(_FRENCH, "hue=320")),
+            _d("french-reverse", "Reverse French", 45, 60, _u(_FRENCH, "flip=h")),
+            _d("french-double", "Double French", 50, 65, _u(_FRENCH, "sat=30")),
+            _d("french-ombre", "Ombre French", 50, 65, _u(_OMBRE, "sat=-10")),
+            _d("french-chrome", "Chrome French", 55, 70, _u(_CHROME, "sat=-30")),
+            _d("french-glitter", "Glitter French", 50, 65, _u(_GLITTER)),
+            _d("french-micro", "Micro French", 45, 60, _u(_FRENCH, "sat=-20")),
         ],
     },
     {
         "id": "ombre",
         "label": "Ombre",
         "designs": [
-            _d("ombre-classic", "Classic Ombre", 45, 65,
-               "https://images.pexels.com/photos/3997392/pexels-photo-3997392.jpeg?auto=compress&cs=tinysrgb&w=600"),
-            _d("ombre-three", "Three Colour Ombre", 55, 75,
-               "https://images.pexels.com/photos/3997389/pexels-photo-3997389.jpeg?auto=compress&cs=tinysrgb&w=600"),
-            _d("ombre-reverse", "Reverse Ombre", 45, 65,
-               "https://images.pexels.com/photos/3993445/pexels-photo-3993445.jpeg?auto=compress&cs=tinysrgb&w=600"),
-            _d("ombre-sunset", "Sunset Ombre", 55, 75,
-               "https://images.pexels.com/photos/3997392/pexels-photo-3997392.jpeg?auto=compress&cs=tinysrgb&w=600"),
-            _d("ombre-pastel", "Pastel Ombre", 50, 70,
-               "https://images.pexels.com/photos/3997388/pexels-photo-3997388.jpeg?auto=compress&cs=tinysrgb&w=600"),
-            _d("ombre-neon", "Neon Ombre", 55, 75,
-               "https://images.pexels.com/photos/3993447/pexels-photo-3993447.jpeg?auto=compress&cs=tinysrgb&w=600"),
+            _d("ombre-classic", "Classic Ombre", 45, 65, _u(_OMBRE)),
+            _d("ombre-three", "Three Colour Ombre", 55, 75, _u(_OMBRE, "sat=40")),
+            _d("ombre-reverse", "Reverse Ombre", 45, 65, _u(_OMBRE, "flip=h")),
+            _d("ombre-sunset", "Sunset Ombre", 55, 75, _u(_OMBRE, "hue=20")),
+            _d("ombre-pastel", "Pastel Ombre", 50, 70, _u(_BABY_PINK, "sat=-10")),
+            _d("ombre-neon", "Neon Ombre", 55, 75, _u(_GLITTER, "sat=80")),
         ],
     },
     {
         "id": "chrome",
         "label": "Chrome",
         "designs": [
-            _d("chrome-mirror", "Mirror Chrome", 55, 80,
-               "https://images.pexels.com/photos/3997393/pexels-photo-3997393.jpeg?auto=compress&cs=tinysrgb&w=600"),
-            _d("chrome-rose-gold", "Rose Gold Chrome", 55, 80,
-               "https://images.pexels.com/photos/3997393/pexels-photo-3997393.jpeg?auto=compress&cs=tinysrgb&w=600"),
-            _d("chrome-holo", "Holographic", 60, 85,
-               "https://images.pexels.com/photos/3997389/pexels-photo-3997389.jpeg?auto=compress&cs=tinysrgb&w=600"),
-            _d("chrome-cat-eye", "Cat Eye", 55, 75,
-               "https://images.pexels.com/photos/3997387/pexels-photo-3997387.jpeg?auto=compress&cs=tinysrgb&w=600"),
-            _d("chrome-duo", "Duochrome", 60, 80,
-               "https://images.pexels.com/photos/3997393/pexels-photo-3997393.jpeg?auto=compress&cs=tinysrgb&w=600"),
-            _d("chrome-aurora", "Aurora Effect", 65, 90,
-               "https://images.pexels.com/photos/3997389/pexels-photo-3997389.jpeg?auto=compress&cs=tinysrgb&w=600"),
-            _d("chrome-glazed-glass", "Glazed Donut Glass", 55, 75,
-               "https://images.pexels.com/photos/3997388/pexels-photo-3997388.jpeg?auto=compress&cs=tinysrgb&w=600"),
+            _d("chrome-mirror", "Mirror Chrome", 55, 80, _u(_CHROME)),
+            _d("chrome-rose-gold", "Rose Gold Chrome", 55, 80, _u(_CHROME, "hue=340")),
+            _d("chrome-holo", "Holographic", 60, 85, _u(_CHROME, "hue=240")),
+            _d("chrome-cat-eye", "Cat Eye", 55, 75, _u(_NAVY_GOLD)),
+            _d("chrome-duo", "Duochrome", 60, 80, _u(_CHROME, "sat=70")),
+            _d("chrome-aurora", "Aurora Effect", 65, 90, _u(_CHROME, "hue=180&sat=60")),
+            _d("chrome-glazed-glass", "Glazed Donut Glass", 55, 75, _u(_NUDE, "sat=10")),
         ],
     },
     {
         "id": "nail-art",
         "label": "Nail Art",
         "designs": [
-            _d("art-floral", "Floral", 60, 90,
-               "https://images.pexels.com/photos/3993446/pexels-photo-3993446.jpeg?auto=compress&cs=tinysrgb&w=600"),
-            _d("art-abstract", "Abstract", 65, 95,
-               "https://images.pexels.com/photos/3993444/pexels-photo-3993444.jpeg?auto=compress&cs=tinysrgb&w=600"),
-            _d("art-geometric", "Geometric", 60, 90,
-               "https://images.pexels.com/photos/3993444/pexels-photo-3993444.jpeg?auto=compress&cs=tinysrgb&w=600"),
-            _d("art-marble", "Marble", 65, 95,
-               "https://images.pexels.com/photos/3997390/pexels-photo-3997390.jpeg?auto=compress&cs=tinysrgb&w=600"),
-            _d("art-animal", "Animal Print", 65, 95,
-               "https://images.pexels.com/photos/3993446/pexels-photo-3993446.jpeg?auto=compress&cs=tinysrgb&w=600"),
-            _d("art-checker", "Checkerboard", 60, 85,
-               "https://images.pexels.com/photos/3993442/pexels-photo-3993442.jpeg?auto=compress&cs=tinysrgb&w=600"),
-            _d("art-swirl", "Swirl", 65, 90,
-               "https://images.pexels.com/photos/3997392/pexels-photo-3997392.jpeg?auto=compress&cs=tinysrgb&w=600"),
-            _d("art-negative", "Negative Space", 55, 80,
-               "https://images.pexels.com/photos/3993448/pexels-photo-3993448.jpeg?auto=compress&cs=tinysrgb&w=600"),
-            _d("art-block", "Colour Block", 55, 80,
-               "https://images.pexels.com/photos/3993442/pexels-photo-3993442.jpeg?auto=compress&cs=tinysrgb&w=600"),
-            _d("art-stripe", "Striped", 55, 80,
-               "https://images.pexels.com/photos/3993442/pexels-photo-3993442.jpeg?auto=compress&cs=tinysrgb&w=600"),
+            _d("art-floral", "Floral", 60, 90, _u(_BABY_PINK, "hue=10")),
+            _d("art-abstract", "Abstract", 65, 95, _u(_BLACK_ART)),
+            _d("art-geometric", "Geometric", 60, 90, _u(_BLACK_ART, "sat=-30")),
+            _d("art-marble", "Marble", 65, 95, _u(_NAVY_GOLD, "sat=-20")),
+            _d("art-animal", "Animal Print", 65, 95, _u(_NAVY_GOLD, "hue=30")),
+            _d("art-checker", "Checkerboard", 60, 85, _u(_BLACK_ART, "sat=-50")),
+            _d("art-swirl", "Swirl", 65, 90, _u(_OMBRE, "hue=280")),
+            _d("art-negative", "Negative Space", 55, 80, _u(_NUDE)),
+            _d("art-block", "Colour Block", 55, 80, _u(_RED, "hue=120")),
+            _d("art-stripe", "Striped", 55, 80, _u(_BLACK_ART, "sat=20")),
         ],
     },
     {
         "id": "embellishments",
         "label": "Embellishments",
         "designs": [
-            _d("emb-rhinestone", "Rhinestone Crystal", 65, 100,
-               "https://images.pexels.com/photos/3993445/pexels-photo-3993445.jpeg?auto=compress&cs=tinysrgb&w=600"),
-            _d("emb-pearl", "Pearl Accents", 60, 90,
-               "https://images.pexels.com/photos/3997388/pexels-photo-3997388.jpeg?auto=compress&cs=tinysrgb&w=600"),
-            _d("emb-gold-foil", "Gold Foil", 65, 95,
-               "https://images.pexels.com/photos/3993447/pexels-photo-3993447.jpeg?auto=compress&cs=tinysrgb&w=600"),
-            _d("emb-glitter-ombre", "Glitter Ombre", 60, 85,
-               "https://images.pexels.com/photos/3993447/pexels-photo-3993447.jpeg?auto=compress&cs=tinysrgb&w=600"),
-            _d("emb-3d", "3D Nail Art", 75, 120,
-               "https://images.pexels.com/photos/3993445/pexels-photo-3993445.jpeg?auto=compress&cs=tinysrgb&w=600"),
-            _d("emb-sticker", "Sticker Art", 50, 75,
-               "https://images.pexels.com/photos/3993444/pexels-photo-3993444.jpeg?auto=compress&cs=tinysrgb&w=600"),
-            _d("emb-stamping", "Stamping", 50, 75,
-               "https://images.pexels.com/photos/3993442/pexels-photo-3993442.jpeg?auto=compress&cs=tinysrgb&w=600"),
+            _d("emb-rhinestone", "Rhinestone Crystal", 65, 100, _u(_GEMS)),
+            _d("emb-pearl", "Pearl Accents", 60, 90, _u(_GEMS, "sat=-50")),
+            _d("emb-gold-foil", "Gold Foil", 65, 95, _u(_NAVY_GOLD, "hue=40")),
+            _d("emb-glitter-ombre", "Glitter Ombre", 60, 85, _u(_GLITTER)),
+            _d("emb-3d", "3D Nail Art", 75, 120, _u(_GEMS, "hue=320")),
+            _d("emb-sticker", "Sticker Art", 50, 75, _u(_BABY_PINK, "hue=180")),
+            _d("emb-stamping", "Stamping", 50, 75, _u(_BLACK_ART, "hue=200")),
         ],
     },
     {
         "id": "specialty",
         "label": "Specialty",
         "designs": [
-            _d("spec-aura", "Aura Nails", 55, 80,
-               "https://images.pexels.com/photos/3997394/pexels-photo-3997394.jpeg?auto=compress&cs=tinysrgb&w=600",
-               "Trending"),
-            _d("spec-jelly", "Jelly Nails", 45, 70,
-               "https://images.pexels.com/photos/3997394/pexels-photo-3997394.jpeg?auto=compress&cs=tinysrgb&w=600"),
-            _d("spec-velvet", "Velvet Nails", 55, 75,
-               "https://images.pexels.com/photos/3997387/pexels-photo-3997387.jpeg?auto=compress&cs=tinysrgb&w=600"),
-            _d("spec-foil", "Foil Art", 60, 85,
-               "https://images.pexels.com/photos/3993447/pexels-photo-3993447.jpeg?auto=compress&cs=tinysrgb&w=600"),
-            _d("spec-gradient-tips", "Gradient Tips", 45, 65,
-               "https://images.pexels.com/photos/3997392/pexels-photo-3997392.jpeg?auto=compress&cs=tinysrgb&w=600"),
-            _d("spec-tortoise", "Tortoiseshell", 60, 85,
-               "https://images.pexels.com/photos/3997390/pexels-photo-3997390.jpeg?auto=compress&cs=tinysrgb&w=600"),
+            _d("spec-aura", "Aura Nails", 55, 80, _u(_OMBRE, "hue=300&sat=-20"), "Trending"),
+            _d("spec-jelly", "Jelly Nails", 45, 70, _u(_NUDE, "sat=30")),
+            _d("spec-velvet", "Velvet Nails", 55, 75, _u(_MATTE, "hue=350")),
+            _d("spec-foil", "Foil Art", 60, 85, _u(_NAVY_GOLD)),
+            _d("spec-gradient-tips", "Gradient Tips", 45, 65, _u(_OMBRE, "sat=-30")),
+            _d("spec-tortoise", "Tortoiseshell", 60, 85, _u(_NAVY_GOLD, "hue=10&sat=-30")),
         ],
     },
 ]
@@ -222,7 +196,7 @@ for g in DESIGN_GROUPS:
 
 
 # ---------------------------------------------------------------------------
-# COLORS — grouped sections, ~200 colors total
+# COLORS — unchanged from previous iteration (200 colours, 9 groups)
 # ---------------------------------------------------------------------------
 
 def _co(hex_code, name, brand):

@@ -43,6 +43,7 @@ Full-stack AI-powered lead generation SaaS platform for nail technicians with 3 
 - Agency dashboard: overview, clients, analytics, style-intel (drop-off %, walking_in_with, market_gaps), billing
 - Seeds 1 agency + 5 techs (Sophie/Bella/Jade/Luxe MTL/Nailed It YYC — all Canadian) + 30 leads + 10 appts + pre-computed automation SMS logs
 - Startup purges any TEST_ data
+- **Iteration 4 (Feb 2026):** Replaced 3 broken Unsplash IDs (squoval shape, _MATTE, _GLITTER) with verified-200 URLs so every shape/design card renders — no blank cards.
 
 ### Frontend
 - Landing page with pulse-cta animation (box-shadow only, no layout jitter) + amber scarcity line
@@ -53,6 +54,7 @@ Full-stack AI-powered lead generation SaaS platform for nail technicians with 3 
 - **Automation Center**: 7 togglable SMS automations with weekly stats card
 - Leads tab: Hot 🔥 / Warm 💛 / Cold 🧊 badges + separate "Win-back" section
 - Agency dashboard: sidebar + verifyAuth on mount (direct-URL nav works); Style Intel with drop-off %, competitor walking-in % bars, market gaps with requested counts
+- **Iteration 4 (Feb 2026):** Shape & Design grids enforced to strict compact layout — `grid-cols-2 md:grid-cols-3 gap-3`, fixed card height `h-[200px]`, image occupies `h-[65%]`, text section `h-[35%]` with truncated title + price/description. No blank cards, Instagram-style nail menu.
 
 ## Bug fixes in this iteration
 - Fixed POST /api/bookings to actually persist all 3 SMS types (was only inserting booking_confirmation)

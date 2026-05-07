@@ -363,27 +363,27 @@ function StepShape({ shapes, detected, selected, onPick }) {
 
 function ShapeGrid({ shapes, detected, selected, onPick }) {
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
       {shapes.map((s) => (
         <button
           key={s.id}
           onClick={() => onPick(s)}
-          className={`group text-left bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-2xl transition relative ${
+          className={`group text-left bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-2xl transition relative flex flex-col h-[200px] ${
             selected === s.id ? "ring-4 ring-[#FFD700]" : ""
           }`}
           data-testid={`shape-card-${s.id}`}
         >
           {detected === s.id && (
-            <span className="absolute top-3 right-3 z-10 bg-[#C2185B] text-white text-[10px] uppercase tracking-wider font-semibold px-2 py-1 rounded-full">
+            <span className="absolute top-2 right-2 z-10 bg-[#C2185B] text-white text-[9px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full">
               Detected
             </span>
           )}
-          <div className="aspect-[4/3] overflow-hidden">
+          <div className="h-[65%] overflow-hidden">
             <img src={s.image} alt={s.label} className="w-full h-full object-cover group-hover:scale-105 transition" loading="lazy" />
           </div>
-          <div className="p-4">
-            <h3 className="font-serif text-xl font-semibold">{s.label}</h3>
-            <p className="text-xs text-gray-500">{s.description}</p>
+          <div className="h-[35%] px-3 py-2 flex flex-col justify-center">
+            <h3 className="font-serif text-base font-semibold leading-tight truncate">{s.label}</h3>
+            <p className="text-[11px] text-gray-500 leading-snug line-clamp-2">{s.description}</p>
           </div>
         </button>
       ))}
@@ -421,27 +421,27 @@ function StepDesign({ groups, selected, onPick, onBack }) {
 function DesignGrid({ groups, active, selected, onPick }) {
   const list = active ? (groups.find((g) => g.id === active)?.designs || []) : groups.flatMap((g) => g.designs);
   return (
-    <div className="grid grid-cols-2 gap-4">
+    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
       {list.map((d) => (
         <button
           key={d.id}
           onClick={() => onPick(d)}
-          className={`group text-left bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-2xl transition relative ${
+          className={`group text-left bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-2xl transition relative flex flex-col h-[200px] ${
             selected === d.id ? "ring-4 ring-[#FFD700]" : ""
           }`}
           data-testid={`design-card-${d.id}`}
         >
           {d.badge && (
-            <span className="absolute top-3 left-3 z-10 bg-[#FFD700] text-[#1f2937] text-[10px] uppercase tracking-wider font-bold px-2 py-1 rounded-full">
+            <span className="absolute top-2 left-2 z-10 bg-[#FFD700] text-[#1f2937] text-[9px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full">
               {d.badge}
             </span>
           )}
-          <div className="aspect-square overflow-hidden">
+          <div className="h-[65%] overflow-hidden">
             <img src={d.image} alt={d.label} className="w-full h-full object-cover group-hover:scale-105 transition" loading="lazy" />
           </div>
-          <div className="p-3">
-            <h3 className="font-serif text-base font-semibold">{d.label}</h3>
-            <p className="text-xs text-[#C2185B] font-semibold">${d.price_range.low}–${d.price_range.high}</p>
+          <div className="h-[35%] px-3 py-2 flex flex-col justify-center">
+            <h3 className="font-serif text-sm font-semibold leading-tight truncate">{d.label}</h3>
+            <p className="text-[11px] text-[#C2185B] font-semibold">${d.price_range.low}–${d.price_range.high}</p>
           </div>
         </button>
       ))}
