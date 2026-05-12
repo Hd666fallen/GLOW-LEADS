@@ -431,6 +431,15 @@ function StepShape({ shapes, detected, selected, onPick }) {
   );
 }
 
+const SHAPE_PHOTOS = {
+  'round': 'https://images.pexels.com/photos/704815/pexels-photo-704815.jpeg',
+  'square': 'https://images.pexels.com/photos/34373402/pexels-photo-34373402.jpeg',
+  'almond': 'https://images.pexels.com/photos/17010955/pexels-photo-17010955.jpeg',
+  'stiletto': 'https://images.pexels.com/photos/33992145/pexels-photo-33992145.jpeg',
+  'coffin': 'https://images.pexels.com/photos/34971857/pexels-photo-34971857.jpeg',
+  'squoval': 'https://images.pexels.com/photos/3997388/pexels-photo-3997388.jpeg',
+};
+
 function ShapeGrid({ shapes, detected, selected, onPick }) {
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -449,7 +458,18 @@ function ShapeGrid({ shapes, detected, selected, onPick }) {
             </span>
           )}
           <div className="h-[65%] overflow-hidden">
-            <img src={s.image} alt={s.label} className="w-full h-full object-cover group-hover:scale-105 transition" loading="lazy" />
+            <img
+              src={SHAPE_PHOTOS[s.id?.toLowerCase()]
+                || SHAPE_PHOTOS[s.label?.toLowerCase()]
+                || s.image}
+              alt={s.label}
+              className="w-full h-full object-cover group-hover:scale-105 transition"
+              loading="lazy"
+              onError={(e) => {
+                e.target.onerror = null;
+                e.target.src = 'https://images.pexels.com/photos/704815/pexels-photo-704815.jpeg';
+              }}
+            />
           </div>
           <div className="h-[35%] px-3 py-2 flex flex-col justify-center">
             <h3 className="font-serif text-base font-semibold leading-tight truncate">{s.label}</h3>
@@ -490,7 +510,17 @@ function StepDesign({ groups, selected, onPick, onBack }) {
 
 function DesignGrid({ groups, active, selected, onPick }) {
   const list = active ? (groups.find((g) => g.id === active)?.designs || []) : groups.flatMap((g) => g.designs);
-  const absolutise = (url) => (url && url.startsWith("/api/") ? `${process.env.REACT_APP_BACKEND_URL}${url}` : url);
+  const absolutise = (url) => {
+    if (!url) return null;
+    if (url.startsWith("http://") ||
+        url.startsWith("https://")) return url;
+    if (url.startsWith("/api/"))
+      return `${process.env.REACT_APP_BACKEND_URL}${url}`;
+    if (url.startsWith("/"))
+      return `${process.env.REACT_APP_BACKEND_URL}${url}`;
+    return url;
+  };
+  const [imgErrored, setImgErrored] = useState({});
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
       {list.map((d) => (
@@ -507,13 +537,23 @@ function DesignGrid({ groups, active, selected, onPick }) {
               {d.badge}
             </span>
           )}
-          {d.custom_by_tech && (
+          {d.custom_by_tech && !imgErrored[d.id] && (
             <span className="absolute top-2 right-2 z-10 bg-[#C2185B] text-white text-[9px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full" data-testid={`her-work-${d.id}`}>
               Her work ✨
             </span>
           )}
           <div className="h-[65%] overflow-hidden">
-            <img src={absolutise(d.image)} alt={d.label} className="w-full h-full object-cover group-hover:scale-105 transition" loading="lazy" />
+            <img
+              src={absolutise(d.image)}
+              alt={d.label}
+              className="w-full h-full object-cover group-hover:scale-105 transition"
+              loading="lazy"
+              onError={(e) => {
+                e.target.onerror = null;
+                e.target.src = 'https://images.pexels.com/photos/3997391/pexels-photo-3997391.jpeg';
+                setImgErrored((prev) => ({ ...prev, [d.id]: true }));
+              }}
+            />
           </div>
           <div className="h-[35%] px-3 py-2 flex flex-col justify-center">
             <h3 className="font-serif text-sm font-semibold leading-tight truncate">{d.label}</h3>
@@ -644,17 +684,36 @@ function StepCustomize({
   }, [selectedShape, selectedDesign, selectedColor]);
 
   // Mirror the canonical state up to the parent so generate() + result screen can read it.
-  useEffect(() => { setFingerState(fingerStates); }, [fingerStates, setFingerState]);
+  useEffect(() => {
+    if (!setFingerState) return;
+    const snapshot = {};
+    Object.keys(fingerStates).forEach(fid => {
+      snapshot[fid] = {
+        shape: fingerStates[fid].shape
+          ? { ...fingerStates[fid].shape } : null,
+        design: fingerStates[fid].design
+          ? { ...fingerStates[fid].design } : null,
+        color: fingerStates[fid].color
+          ? { ...fingerStates[fid].color } : null,
+      };
+    });
+    setFingerState(snapshot);
+  }, [fingerStates]);
 
   // BUG 1 — updateFinger writes ONE finger's ONE field. Other 9 fingers untouched.
   const updateFinger = (fingerId, field, value) => {
-    setFingerStates((prev) => ({
-      ...prev,
-      [fingerId]: {
+    if (!fingerId || !field) return;
+    const valueCopy = value && typeof value === 'object'
+      ? { ...value }
+      : value;
+    setFingerStates((prev) => {
+      const next = { ...prev };
+      next[fingerId] = {
         ...prev[fingerId],
-        [field]: value,
-      },
-    }));
+        [field]: valueCopy,
+      };
+      return next;
+    });
   };
 
   const applyToAll = () => {

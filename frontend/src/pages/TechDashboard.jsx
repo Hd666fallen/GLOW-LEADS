@@ -503,7 +503,7 @@ function StyleManager() {
         </p>
       </div>
 
-      <div className="space-y-2 max-h-[55vh] overflow-y-auto pr-1">
+      <div className="space-y-2 overflow-y-auto h-[calc(100vh-120px)] max-h-[calc(100vh-120px)] pr-1">
         {filtered.map((s) => {
           const on = enabledSet.has(s.id);
           const price = prices[s.id] ?? s.price_range.low;
