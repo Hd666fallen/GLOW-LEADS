@@ -226,6 +226,10 @@ export default function CustomerFunnel() {
           fingerIds={FINGER_IDS}
           fingerState={fingerState}
           setFingerState={setFingerState}
+          imageDataUrl={imageDataUrl}
+          selectedShape={shape}
+          selectedDesign={design}
+          selectedColor={color}
           onBack={() => setStep(4)}
           onSkip={() => generate({ skipFingers: true })}
           onGenerate={() => generate()}
@@ -582,173 +586,41 @@ function ColorPalette({ groups, selected, onSelect }) {
 const FINGER_LABELS = { thumb: "Thumb", index: "Index", middle: "Middle", ring: "Ring", pinky: "Pinky" };
 const FINGER_ORDER = ["thumb","index","middle","ring","pinky"];
 
-// SVG geometry for a stylized left-hand silhouette. We mirror via scaleX(-1) for right.
-const HAND_FINGERS = [
-  // finger: {x of finger center, y of top of finger, finger height, nail height}
-  { key: "thumb",  cx: 195, top: 95,  fingerH: 78,  nailH: 26 },
-  { key: "index",  cx: 50,  top: 20,  fingerH: 132, nailH: 28 },
-  { key: "middle", cx: 90,  top: 5,   fingerH: 150, nailH: 30 },
-  { key: "ring",   cx: 130, top: 18,  fingerH: 135, nailH: 28 },
-  { key: "pinky",  cx: 168, top: 50,  fingerH: 102, nailH: 24 },
-];
-const FINGER_W = 30;
-const NAIL_W = 22;
+// Approximate nail-tip positions (as % of the photo card) on a typical palm-down hand photo.
+// hand 'l' = left hand viewed by customer (thumb on the RIGHT side of the photo).
+// We mirror horizontally for the right hand.
+const NAIL_OVERLAY_LAYOUT = {
+  thumb:  { left: 78, top: 50, width: 13, height: 16, rotate: 28 },
+  index:  { left: 22, top: 14, width: 12, height: 18, rotate: -6 },
+  middle: { left: 38, top: 6,  width: 12, height: 18, rotate: 0 },
+  ring:   { left: 54, top: 10, width: 12, height: 18, rotate: 4 },
+  pinky:  { left: 68, top: 24, width: 11, height: 16, rotate: 10 },
+};
 
 function absoluteImg(url) {
   return url && url.startsWith("/api/") ? `${process.env.REACT_APP_BACKEND_URL}${url}` : url;
 }
 
-function NailPreview({ fingerState, size = "md", testid }) {
-  // Renders the DESIGN image (NEVER the uploaded hand) cropped into a nail shape,
-  // tinted with the current finger colour overlay.
-  const sizes = {
-    sm: { w: 34, h: 46, radius: "16px 16px 6px 6px" },
-    md: { w: 48, h: 64, radius: "24px 24px 8px 8px" },
-  };
-  const s = sizes[size] || sizes.md;
-  const img = fingerState?.design?.image;
-  return (
-    <div
-      className="relative overflow-hidden bg-pink-50 ring-1 ring-black/5 transition-all duration-200"
-      style={{ width: s.w, height: s.h, borderRadius: s.radius }}
-      data-testid={testid}
-    >
-      {img && (
-        <img
-          src={absoluteImg(img)}
-          alt=""
-          className="w-full h-full object-cover"
-          style={{ objectPosition: "50% 35%" }}
-          data-design-src={img}
-        />
-      )}
-      {fingerState?.color?.hex && (
-        <div
-          className="absolute inset-0 mix-blend-multiply transition-all duration-200"
-          style={{ background: fingerState.color.hex, opacity: 0.6 }}
-        />
-      )}
-    </div>
-  );
-}
-
-function HandSvg({ hand, fingerState, activeFinger, onSelectFinger }) {
-  const mirror = hand === "r";
-  return (
-    <div className="flex justify-center" data-testid={`hand-svg-${hand}`}>
-      <svg
-        viewBox="0 0 230 270"
-        width="220"
-        height="260"
-        style={{ transform: mirror ? "scaleX(-1)" : "none" }}
-        aria-label={hand === "l" ? "Left hand" : "Right hand"}
-      >
-        {/* Palm + wrist */}
-        <path
-          d="M 25 175 Q 25 130 60 130 L 175 130 Q 215 130 215 180 L 215 240 Q 215 265 185 265 L 55 265 Q 25 265 25 240 Z"
-          fill="#F5CBA7"
-          stroke="#E5B98A"
-          strokeWidth="1.5"
-        />
-        {/* Fingers */}
-        {HAND_FINGERS.map((f) => {
-          const fid = `${hand}-${f.key}`;
-          const fs = fingerState[fid];
-          const isActive = activeFinger === fid;
-          const fingerX = f.cx - FINGER_W / 2;
-          const nailX = f.cx - NAIL_W / 2;
-          const nailRx = NAIL_W / 2;
-          const designImg = fs?.design?.image && absoluteImg(fs.design.image);
-          const clipId = `clip-${hand}-${f.key}`;
-          return (
-            <g key={fid}>
-              {/* Finger body */}
-              <rect
-                x={fingerX}
-                y={f.top}
-                width={FINGER_W}
-                height={f.fingerH}
-                rx={FINGER_W / 2}
-                fill="#F5CBA7"
-                stroke="#E5B98A"
-                strokeWidth="1.2"
-              />
-              {/* Clip path for nail */}
-              <defs>
-                <clipPath id={clipId}>
-                  <rect
-                    x={nailX}
-                    y={f.top + 3}
-                    width={NAIL_W}
-                    height={f.nailH}
-                    rx={nailRx}
-                    ry={nailRx * 0.55}
-                  />
-                </clipPath>
-              </defs>
-              {/* Base nail */}
-              <rect
-                x={nailX}
-                y={f.top + 3}
-                width={NAIL_W}
-                height={f.nailH}
-                rx={nailRx}
-                ry={nailRx * 0.55}
-                fill={fs?.color?.hex || "#FFEFD5"}
-                style={{ transition: "all 0.2s ease" }}
-              />
-              {/* Design image clipped into nail (if any) */}
-              {designImg && (
-                <image
-                  href={designImg}
-                  x={nailX - 4}
-                  y={f.top - 2}
-                  width={NAIL_W + 8}
-                  height={f.nailH + 6}
-                  preserveAspectRatio="xMidYMid slice"
-                  clipPath={`url(#${clipId})`}
-                  opacity="0.55"
-                />
-              )}
-              {/* Active highlight */}
-              <rect
-                x={nailX - 2}
-                y={f.top + 1}
-                width={NAIL_W + 4}
-                height={f.nailH + 4}
-                rx={nailRx + 2}
-                ry={nailRx * 0.6}
-                fill="none"
-                stroke={isActive ? "#C2185B" : "transparent"}
-                strokeWidth="2"
-                style={{
-                  filter: isActive ? "drop-shadow(0 0 6px #FFD700)" : "none",
-                  transition: "all 0.2s ease",
-                }}
-              />
-              {/* Hit area */}
-              <rect
-                x={fingerX - 4}
-                y={f.top - 4}
-                width={FINGER_W + 8}
-                height={f.fingerH + 8}
-                fill="transparent"
-                onClick={() => onSelectFinger(fid)}
-                style={{ cursor: "pointer" }}
-                data-testid={`svg-finger-${fid}`}
-              />
-            </g>
-          );
-        })}
-      </svg>
-    </div>
-  );
-}
-
-function StepCustomize({ shapes, designGroups, colorGroups, fingerIds, fingerState, setFingerState, onBack, onSkip, onGenerate }) {
-  const [hand, setHand] = useState("l"); // 'l' | 'r'
+function StepCustomize({
+  shapes, designGroups, colorGroups,
+  fingerIds, fingerState, setFingerState,
+  imageDataUrl, selectedShape, selectedDesign, selectedColor,
+  onBack, onSkip, onGenerate,
+}) {
+  const [hand, setHand] = useState("l");
   const [activeFinger, setActiveFinger] = useState("l-ring");
   const [designCat, setDesignCat] = useState(designGroups[0]?.id);
+
+  // STEP 6: Initialize fingerState ONCE on first render of this component
+  // (defensive — parent also initializes when entering this step).
+  useEffect(() => {
+    if (fingerState) return;
+    if (!selectedShape || !selectedDesign || !selectedColor) return;
+    const base = { shape: selectedShape, design: selectedDesign, color: selectedColor };
+    const next = fingerIds.reduce((acc, fid) => { acc[fid] = { ...base }; return acc; }, {});
+    setFingerState(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (!fingerState) {
     return (
@@ -759,10 +631,12 @@ function StepCustomize({ shapes, designGroups, colorGroups, fingerIds, fingerSta
     );
   }
 
-  const updateFinger = (fid, patch) => {
+  // STEP 2: Update ONLY the active finger. Uses functional updater + spread —
+  // never replaces the whole map, never loops.
+  const updateActiveFinger = (patch) => {
     setFingerState((prev) => ({
       ...prev,
-      [fid]: { ...prev[fid], ...patch },
+      [activeFinger]: { ...prev[activeFinger], ...patch },
     }));
   };
 
@@ -777,33 +651,18 @@ function StepCustomize({ shapes, designGroups, colorGroups, fingerIds, fingerSta
   const editing = fingerState[activeFinger];
   const editingFingerLabel = `${activeFinger.startsWith("l-") ? "Left" : "Right"} ${FINGER_LABELS[activeFinger.split("-")[1]]}`;
 
-  const selectFingerFromSvg = (fid) => {
-    setHand(fid.startsWith("l-") ? "l" : "r");
-    setActiveFinger(fid);
-  };
-
   return (
     <section className="slide-up" style={{ paddingBottom: 140 }} data-testid="step-customize">
       <button onClick={onBack} className="mb-3 text-sm opacity-70 inline-flex items-center gap-2"><ArrowLeft className="w-4 h-4" /> Back</button>
       <h2 className="funnel-headline text-3xl md:text-4xl font-bold mb-1">Make every finger yours 💅</h2>
-      <p className="text-sm opacity-70 mb-4">Tap any finger to customize it individually — or skip to keep the same look</p>
-
-      {/* Live SVG hand */}
-      <div className="mb-3 bg-gradient-to-b from-white to-[#fce4ec]/30 rounded-2xl py-3 border border-pink-100">
-        <HandSvg
-          hand={hand}
-          fingerState={fingerState}
-          activeFinger={activeFinger}
-          onSelectFinger={selectFingerFromSvg}
-        />
-      </div>
+      <p className="text-sm opacity-70 mb-5">Tap any finger to customize it individually — or skip to keep the same look</p>
 
       {/* Hand toggle */}
       <div className="flex gap-2 mb-4">
         {[{k:"l",label:"Left hand"},{k:"r",label:"Right hand"}].map((h) => (
           <button
             key={h.k}
-            onClick={() => setHand(h.k)}
+            onClick={() => { setHand(h.k); setActiveFinger(`${h.k}-${activeFinger.split("-")[1]}`); }}
             className={`flex-1 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition ${
               hand === h.k ? "bg-[#C2185B] text-white" : "bg-white text-[#C2185B] border border-[#C2185B]/30"
             }`}
@@ -814,8 +673,8 @@ function StepCustomize({ shapes, designGroups, colorGroups, fingerIds, fingerSta
         ))}
       </div>
 
-      {/* Finger preview row (design image only — never the uploaded hand photo) */}
-      <div className="grid grid-cols-5 gap-2 mb-3" data-testid="finger-preview-row">
+      {/* STEP 3: Clean nail-slot selector — colour only, no photos */}
+      <div className="grid grid-cols-5 gap-3 mb-3 justify-items-center" data-testid="finger-preview-row">
         {currentFingers.map((fid) => {
           const fs = fingerState[fid];
           const fname = FINGER_LABELS[fid.split("-")[1]];
@@ -828,14 +687,25 @@ function StepCustomize({ shapes, designGroups, colorGroups, fingerIds, fingerSta
               data-testid={`finger-${fid}`}
             >
               <div
-                className={`transition-all duration-200 ${
-                  isActive ? "shadow-[0_0_0_4px_rgba(255,215,0,0.45)] -translate-y-[5px]" : ""
-                }`}
-                style={{ borderRadius: "24px 24px 8px 8px", outline: isActive ? "2px solid #C2185B" : "none" }}
+                style={{
+                  width: 40,
+                  height: 60,
+                  borderRadius: "20px 20px 6px 6px",
+                  background: fs?.color?.hex || "#FFEFD5",
+                  border: isActive ? "2px solid #C2185B" : "1px solid rgba(0,0,0,0.08)",
+                  boxShadow: isActive ? "0 0 0 3px rgba(255,215,0,0.5)" : "none",
+                  transform: isActive ? "translateY(-4px)" : "translateY(0)",
+                  transition: "all 0.2s ease",
+                }}
+                data-testid={`finger-preview-${fid}`}
+                data-color={fs?.color?.hex || ""}
+              />
+              <span
+                className={`mt-2 ${isActive ? "text-[#C2185B] font-semibold" : "text-gray-500"}`}
+                style={{ fontSize: 11 }}
               >
-                <NailPreview fingerState={fs} size="md" testid={`finger-preview-${fid}`} />
-              </div>
-              <span className={`text-[10px] mt-1 font-semibold ${isActive ? "text-[#C2185B]" : "text-gray-500"}`}>{fname}</span>
+                {fname}
+              </span>
             </button>
           );
         })}
@@ -862,7 +732,7 @@ function StepCustomize({ shapes, designGroups, colorGroups, fingerIds, fingerSta
               return (
                 <button
                   key={s.id}
-                  onClick={() => updateFinger(activeFinger, { shape: s })}
+                  onClick={() => updateActiveFinger({ shape: s })}
                   className={`rounded-xl overflow-hidden bg-white border-2 transition text-left ${sel ? "border-[#C2185B]" : "border-transparent"}`}
                   data-testid={`finger-shape-${s.id}`}
                 >
@@ -897,7 +767,7 @@ function StepCustomize({ shapes, designGroups, colorGroups, fingerIds, fingerSta
               return (
                 <button
                   key={d.id}
-                  onClick={() => updateFinger(activeFinger, { design: d })}
+                  onClick={() => updateActiveFinger({ design: d })}
                   className={`rounded-xl overflow-hidden bg-white border-2 transition text-left ${sel ? "border-[#C2185B]" : "border-transparent"}`}
                   data-testid={`finger-design-${d.id}`}
                 >
@@ -925,7 +795,7 @@ function StepCustomize({ shapes, designGroups, colorGroups, fingerIds, fingerSta
                     return (
                       <button
                         key={`${c.hex}-${i}`}
-                        onClick={() => updateFinger(activeFinger, { color: c })}
+                        onClick={() => updateActiveFinger({ color: c })}
                         className={`w-7 h-7 rounded-full transition flex items-center justify-center ${
                           sel ? "ring-[3px] ring-[#FFD700] scale-110" : "ring-1 ring-black/10"
                         }`}
@@ -944,63 +814,86 @@ function StepCustomize({ shapes, designGroups, colorGroups, fingerIds, fingerSta
         </div>
       </div>
 
-      {/* Full look summary — never uses the uploaded hand photo */}
-      <div className="mt-6 bg-[#fce4ec]/30 rounded-2xl p-4" data-testid="summary-strip">
-        <p className="text-xs uppercase tracking-[0.2em] text-[#C2185B] font-semibold mb-3">Your full look</p>
-        {["l","r"].map((h) => (
-          <div key={h} className="mb-3 last:mb-0">
-            <p className="text-[11px] text-gray-500 mb-1">{h === "l" ? "Left hand" : "Right hand"}</p>
-            <div className="grid grid-cols-5 gap-1.5">
-              {FINGER_ORDER.map((finger) => {
-                const fid = `${h}-${finger}`;
-                const fs = fingerState[fid];
-                return (
-                  <button
-                    key={fid}
-                    onClick={() => { setHand(h); setActiveFinger(fid); }}
-                    className="flex flex-col items-center"
-                    data-testid={`summary-${fid}`}
-                  >
-                    <NailPreview fingerState={fs} size="sm" testid={`summary-preview-${fid}`} />
-                    <span className="text-[9px] mt-1 text-gray-500">{FINGER_LABELS[finger]}</span>
-                  </button>
-                );
-              })}
-            </div>
+      {/* STEP 4: User's hand photo with live colour overlays on each nail */}
+      {imageDataUrl && (
+        <div className="mt-6" data-testid="hand-preview-card">
+          <p className="text-[#C2185B] font-semibold mb-2" style={{ fontSize: 14 }}>Your look so far</p>
+          <div
+            className="relative overflow-hidden bg-gray-50"
+            style={{ borderRadius: 16 }}
+          >
+            <img src={imageDataUrl} alt="Your hand" className="w-full h-auto block" />
+            {/* Overlay nails — show current hand only */}
+            {FINGER_ORDER.map((finger) => {
+              const fid = `${hand}-${finger}`;
+              const fs = fingerState[fid];
+              const layout = NAIL_OVERLAY_LAYOUT[finger];
+              if (!layout) return null;
+              const left = hand === "r" ? (100 - layout.left - layout.width) : layout.left;
+              return (
+                <div
+                  key={fid}
+                  style={{
+                    position: "absolute",
+                    left: `${left}%`,
+                    top: `${layout.top}%`,
+                    width: `${layout.width}%`,
+                    height: `${layout.height}%`,
+                    background: fs?.color?.hex || "transparent",
+                    borderRadius: "40% 40% 20% 20%",
+                    mixBlendMode: "multiply",
+                    opacity: 0.75,
+                    transform: `rotate(${hand === "r" ? -layout.rotate : layout.rotate}deg)`,
+                    transition: "all 0.2s ease",
+                    pointerEvents: "none",
+                  }}
+                  data-testid={`overlay-${fid}`}
+                  data-color={fs?.color?.hex || ""}
+                />
+              );
+            })}
           </div>
-        ))}
-      </div>
+        </div>
+      )}
 
-      {/* Floating generate bar (Fix 4) */}
+      {/* STEP 5: Floating Generate bar */}
       <div
-        className="fixed left-0 right-0 z-40 shadow-[0_-8px_24px_rgba(0,0,0,0.08)]"
         style={{
+          position: "fixed",
           bottom: 0,
+          left: 0,
+          right: 0,
+          zIndex: 999,
+          background: "white",
           padding: "16px 24px",
-          background: "rgba(255,255,255,0.92)",
-          backdropFilter: "blur(12px)",
-          WebkitBackdropFilter: "blur(12px)",
-          borderTop: "1px solid rgba(194,24,91,0.12)",
+          borderTop: "1px solid #fce4ec",
         }}
         data-testid="customize-bottom-bar"
       >
-        <div className="max-w-6xl mx-auto">
-          <button
-            onClick={onGenerate}
-            className="w-full rounded-full font-bold text-white text-base py-4 transition active:scale-[0.98]"
-            style={{ background: "#C2185B" }}
-            data-testid="customize-generate-btn"
-          >
-            Generate my look ✨
-          </button>
-          <button
-            onClick={onSkip}
-            className="block mx-auto mt-2 text-xs text-gray-500 underline"
-            data-testid="customize-skip-btn"
-          >
-            Skip — same look for all
-          </button>
-        </div>
+        <button
+          onClick={onGenerate}
+          style={{
+            width: "100%",
+            background: "#C2185B",
+            color: "white",
+            borderRadius: 9999,
+            padding: 16,
+            fontSize: 16,
+            fontWeight: 600,
+          }}
+          className="transition active:scale-[0.98]"
+          data-testid="customize-generate-btn"
+        >
+          Generate my look ✨
+        </button>
+        <button
+          onClick={onSkip}
+          className="block mx-auto mt-2 text-gray-500 underline"
+          style={{ fontSize: 13 }}
+          data-testid="customize-skip-btn"
+        >
+          Skip — same look for all
+        </button>
       </div>
     </section>
   );

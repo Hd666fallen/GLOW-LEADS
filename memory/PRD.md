@@ -71,6 +71,13 @@ Full-stack AI-powered lead generation SaaS platform for nail technicians with 3 
   - Generate now **actually sends** `finger_customizations` to `/api/ai/try-on` (and to `/api/leads`), and the backend prompt for Gemini lists per-finger overrides (only fingers that differ from base). Skip path passes `null` so the AI gets the unified look.
   - Result screen shows a **"Custom mixed look 💅"** badge when any finger differs from the base.
   - Floating bottom bar (`position: fixed`, white + `backdrop-filter: blur(12px)`, `padding: 16px 24px`, `Generate my look ✨` full-width pink, "Skip — same look for all" link below) always visible; section has `padding-bottom: 140px`.
+- **Iteration 7 (Feb 2026) — Per-finger customizer rebuild:**
+  - **Removed** the SVG illustrated hand and the `<NailPreview/>` design-thumbnail component (they confused users).
+  - **Single-finger isolation guarantee**: editor uses `setFingerState(prev => ({ ...prev, [activeFinger]: { ...prev[activeFinger], ...patch } }))`. Verified in-browser: changing L-Ring colour leaves all 9 other fingers unchanged.
+  - **New top selector**: Left/Right hand toggle + 5 clean coloured nail-slots (40×60, `border-radius: 20px 20px 6px 6px`, **no photos**) with the active slot getting a pink border + gold glow + 4px lift. Label 11px below each slot.
+  - **New bottom preview**: the customer's *actual uploaded hand photo* in a 16px-rounded card with 5 colour-overlay nail shapes positioned over typical finger-tip spots (`mix-blend-mode: multiply`, `opacity: 0.75`). Overlays mirror for right hand. Title "Your look so far" in pink 14px.
+  - **Floating Generate bar**: solid white, `border-top: 1px solid #fce4ec`, full-width pink rounded button, "Skip — same look for all" 13px grey link below. `padding-bottom: 140px` on the section.
+  - **Initial state**: `useEffect` in StepCustomize defensively initializes all 10 fingers with `{shape: selectedShape, design: selectedDesign, color: selectedColor}` once on first render (parent also pre-initializes when entering step 5).
 
 ## Bug fixes in this iteration
 - Fixed POST /api/bookings to actually persist all 3 SMS types (was only inserting booking_confirmation)
