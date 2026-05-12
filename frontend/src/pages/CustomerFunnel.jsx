@@ -102,6 +102,8 @@ export default function CustomerFunnel() {
           || (fingerInited && fingerState
                 ? Object.entries(fingerState).map(([fid, fs]) => ({
                     finger_id: fid,
+                    hand: fid.startsWith('left') ? 'left' : 'right',
+                    finger: fid.split('-')[1],
                     shape_id: fs.shape?.id,
                     design_id: fs.design?.id,
                     color_hex: fs.color?.hex,

@@ -471,27 +471,32 @@ async def ai_try_on(data: TryOnIn):
         if data.color_hex:
             color_text = f" using the colour {data.color_name or data.color_hex} (hex {data.color_hex})"
 
-        # Per-finger overrides: only mention fingers that differ from the global look
+        # Per-finger overrides: split by hand so the AI never mirrors changes
         per_finger_text = ""
         if data.finger_customizations:
             base_design = data.design_id
             base_shape = data.shape_id
             base_color = data.color_hex
-            lines: list[str] = []
             label_for_finger = {
                 "left-thumb": "left thumb", "left-index": "left index",
                 "left-middle": "left middle", "left-ring": "left ring", "left-pinky": "left pinky",
                 "right-thumb": "right thumb", "right-index": "right index",
                 "right-middle": "right middle", "right-ring": "right ring", "right-pinky": "right pinky",
             }
+            left_lines: list[str] = []
+            right_lines: list[str] = []
             for fc in data.finger_customizations:
                 fid = fc.get("finger_id")
+                hand = fc.get("hand") or (
+                    "left" if (fid or "").startswith("left") else
+                    "right" if (fid or "").startswith("right") else None
+                )
                 differs = (
                     (fc.get("design_id") and fc["design_id"] != base_design)
                     or (fc.get("shape_id") and fc["shape_id"] != base_shape)
                     or (fc.get("color_hex") and fc["color_hex"] != base_color)
                 )
-                if not differs or fid not in label_for_finger:
+                if not differs or fid not in label_for_finger or hand not in ("left", "right"):
                     continue
                 fd = DESIGN_MAP.get(fc.get("design_id"))
                 fs = SHAPE_MAP.get(fc.get("shape_id"))
@@ -502,11 +507,22 @@ async def ai_try_on(data: TryOnIn):
                     desc_parts.append(f"{fd['label']} design")
                 if fc.get("color_name") or fc.get("color_hex"):
                     desc_parts.append(f"colour {fc.get('color_name') or fc.get('color_hex')}")
-                if desc_parts:
-                    lines.append(f"- {label_for_finger[fid]}: {', '.join(desc_parts)}")
-            if lines:
+                if not desc_parts:
+                    continue
+                line = f"- {label_for_finger[fid]}: {', '.join(desc_parts)}"
+                if hand == "left":
+                    left_lines.append(line)
+                else:
+                    right_lines.append(line)
+            if left_lines or right_lines:
                 per_finger_text = (
-                    " Apply these per-finger overrides on top of the base look:\n" + "\n".join(lines)
+                    "\n\nPer-finger overrides on top of the base look. "
+                    "Treat the LEFT hand and the RIGHT hand as COMPLETELY INDEPENDENT. "
+                    "Do NOT mirror changes from the left hand onto the right hand. "
+                    "Do NOT mirror changes from the right hand onto the left hand. "
+                    "Each finger listed below applies ONLY to that exact finger on that exact hand:\n"
+                    f"Left hand fingers:\n" + ("\n".join(left_lines) if left_lines else "- (no overrides — use the base look)") + "\n"
+                    f"Right hand fingers:\n" + ("\n".join(right_lines) if right_lines else "- (no overrides — use the base look)")
                 )
 
         prompt = (
