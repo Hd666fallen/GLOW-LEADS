@@ -41,8 +41,17 @@ export default function CustomerFunnel() {
   const initFingerStateIfNeeded = (force = false) => {
     if (!shape || !design || !color) return;
     if (!force && fingerInited) return;
-    const base = { shape, design, color };
-    setFingerState(FINGER_IDS.reduce((acc, fid) => { acc[fid] = { ...base }; return acc; }, {}));
+    const next = {};
+    for (const fid of FINGER_IDS) {
+      // Each finger gets its OWN fresh outer object AND its own clones of
+      // shape/design/color — never shared by reference with any other finger.
+      next[fid] = {
+        shape: { ...shape },
+        design: { ...design },
+        color: { ...color },
+      };
+    }
+    setFingerState(next);
     setFingerInited(true);
   };
 
@@ -599,13 +608,25 @@ function StepCustomize({
   const [activeFinger, setActiveFinger] = useState("l-ring");
   const [designCat, setDesignCat] = useState(designGroups[0]?.id);
 
-  // STEP 6: Initialize fingerState ONCE on first render of this component
-  // (defensive — parent also initializes when entering this step).
+  // Ref always points at the latest activeFinger so closures in click handlers
+  // can never read a stale value and update the wrong finger.
+  const activeFingerRef = useRef(activeFinger);
+  useEffect(() => { activeFingerRef.current = activeFinger; }, [activeFinger]);
+
+  // STEP 6: Initialize fingerState ONCE on first render of this component.
+  // Each finger gets its OWN fresh outer object AND its own shallow clones of
+  // shape/design/color so they can never accidentally share references.
   useEffect(() => {
     if (fingerState) return;
     if (!selectedShape || !selectedDesign || !selectedColor) return;
-    const base = { shape: selectedShape, design: selectedDesign, color: selectedColor };
-    const next = fingerIds.reduce((acc, fid) => { acc[fid] = { ...base }; return acc; }, {});
+    const next = {};
+    for (const fid of fingerIds) {
+      next[fid] = {
+        shape: { ...selectedShape },
+        design: { ...selectedDesign },
+        color: { ...selectedColor },
+      };
+    }
     setFingerState(next);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -619,19 +640,44 @@ function StepCustomize({
     );
   }
 
-  // STEP 2: Update ONLY the active finger. Uses functional updater + spread —
-  // never replaces the whole map, never loops.
-  const updateActiveFinger = (patch) => {
-    setFingerState((prev) => ({
-      ...prev,
-      [activeFinger]: { ...prev[activeFinger], ...patch },
-    }));
+  // Update ONLY the finger whose id is explicitly passed in. Each updater
+  // creates a brand-new entry for that finger; all other 9 fingers are passed
+  // through by reference identity from `prev` and are guaranteed not to mutate.
+  const updateFingerById = (fid, patch) => {
+    setFingerState((prev) => {
+      const target = prev[fid];
+      if (!target) return prev;
+      const updated = { ...target };
+      if (Object.prototype.hasOwnProperty.call(patch, "shape")) {
+        updated.shape = patch.shape ? { ...patch.shape } : null;
+      }
+      if (Object.prototype.hasOwnProperty.call(patch, "design")) {
+        updated.design = patch.design ? { ...patch.design } : null;
+      }
+      if (Object.prototype.hasOwnProperty.call(patch, "color")) {
+        updated.color = patch.color ? { ...patch.color } : null;
+      }
+      return { ...prev, [fid]: updated };
+    });
   };
 
+  // Convenience: use the very latest activeFinger via ref to dodge closure staleness.
+  const updateActiveFinger = (patch) => updateFingerById(activeFingerRef.current, patch);
+
   const applyToAll = () => {
-    const src = fingerState[activeFinger];
+    const src = fingerState[activeFingerRef.current];
     if (!src) return;
-    setFingerState((prev) => fingerIds.reduce((acc, fid) => { acc[fid] = { ...src }; return acc; }, {}));
+    setFingerState(() => {
+      const next = {};
+      for (const fid of fingerIds) {
+        next[fid] = {
+          shape: src.shape ? { ...src.shape } : null,
+          design: src.design ? { ...src.design } : null,
+          color: src.color ? { ...src.color } : null,
+        };
+      }
+      return next;
+    });
     toast.success("Applied to all 10 fingers");
   };
 
