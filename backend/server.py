@@ -479,10 +479,10 @@ async def ai_try_on(data: TryOnIn):
             base_color = data.color_hex
             lines: list[str] = []
             label_for_finger = {
-                "l-thumb": "left thumb", "l-index": "left index",
-                "l-middle": "left middle", "l-ring": "left ring", "l-pinky": "left pinky",
-                "r-thumb": "right thumb", "r-index": "right index",
-                "r-middle": "right middle", "r-ring": "right ring", "r-pinky": "right pinky",
+                "left-thumb": "left thumb", "left-index": "left index",
+                "left-middle": "left middle", "left-ring": "left ring", "left-pinky": "left pinky",
+                "right-thumb": "right thumb", "right-index": "right index",
+                "right-middle": "right middle", "right-ring": "right ring", "right-pinky": "right pinky",
             }
             for fc in data.finger_customizations:
                 fid = fc.get("finger_id")

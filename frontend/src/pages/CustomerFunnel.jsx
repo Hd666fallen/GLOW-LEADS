@@ -34,7 +34,7 @@ export default function CustomerFunnel() {
   const [color, setColor] = useState(null);
 
   // Per-finger customizer state (Step 5)
-  const FINGER_IDS = ["l-thumb","l-index","l-middle","l-ring","l-pinky","r-thumb","r-index","r-middle","r-ring","r-pinky"];
+  const FINGER_IDS = ["left-thumb","left-index","left-middle","left-ring","left-pinky","right-thumb","right-index","right-middle","right-ring","right-pinky"];
   const [fingerState, setFingerState] = useState(null);
   const [fingerInited, setFingerInited] = useState(false);
 
@@ -604,86 +604,80 @@ function StepCustomize({
   selectedShape, selectedDesign, selectedColor,
   onBack, onSkip, onGenerate,
 }) {
-  const [hand, setHand] = useState("l");
-  const [activeFinger, setActiveFinger] = useState("l-ring");
+  const [hand, setHand] = useState("left");
+  const [activeFinger, setActiveFinger] = useState("left-ring");
   const [designCat, setDesignCat] = useState(designGroups[0]?.id);
 
-  // Ref always points at the latest activeFinger so closures in click handlers
-  // can never read a stale value and update the wrong finger.
-  const activeFingerRef = useRef(activeFinger);
-  useEffect(() => { activeFingerRef.current = activeFinger; }, [activeFinger]);
+  // BUG 1 — Per-finger state isolation. Each finger has its OWN object.
+  const [fingerStates, setFingerStates] = useState({
+    'left-thumb':   { shape: null, design: null, color: null },
+    'left-index':   { shape: null, design: null, color: null },
+    'left-middle':  { shape: null, design: null, color: null },
+    'left-ring':    { shape: null, design: null, color: null },
+    'left-pinky':   { shape: null, design: null, color: null },
+    'right-thumb':  { shape: null, design: null, color: null },
+    'right-index':  { shape: null, design: null, color: null },
+    'right-middle': { shape: null, design: null, color: null },
+    'right-ring':   { shape: null, design: null, color: null },
+    'right-pinky':  { shape: null, design: null, color: null },
+  });
 
-  // STEP 6: Initialize fingerState ONCE on first render of this component.
-  // Each finger gets its OWN fresh outer object AND its own shallow clones of
-  // shape/design/color so they can never accidentally share references.
+  // Pre-fill every finger ONCE with the previous step's selected shape/design/color.
+  // Each finger gets its OWN cloned object — no shared references.
+  const initedRef = useRef(false);
   useEffect(() => {
-    if (fingerState) return;
+    if (initedRef.current) return;
     if (!selectedShape || !selectedDesign || !selectedColor) return;
-    const next = {};
-    for (const fid of fingerIds) {
-      next[fid] = {
-        shape: { ...selectedShape },
-        design: { ...selectedDesign },
-        color: { ...selectedColor },
-      };
-    }
-    setFingerState(next);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  if (!fingerState) {
-    return (
-      <section className="slide-up text-center py-10" data-testid="step-customize">
-        <Loader2 className="w-6 h-6 animate-spin text-[#C2185B] mx-auto" />
-        <p className="text-sm opacity-70 mt-3">Preparing your fingers...</p>
-      </section>
-    );
-  }
-
-  // Update ONLY the finger whose id is explicitly passed in. Each updater
-  // creates a brand-new entry for that finger; all other 9 fingers are passed
-  // through by reference identity from `prev` and are guaranteed not to mutate.
-  const updateFingerById = (fid, patch) => {
-    setFingerState((prev) => {
-      const target = prev[fid];
-      if (!target) return prev;
-      const updated = { ...target };
-      if (Object.prototype.hasOwnProperty.call(patch, "shape")) {
-        updated.shape = patch.shape ? { ...patch.shape } : null;
-      }
-      if (Object.prototype.hasOwnProperty.call(patch, "design")) {
-        updated.design = patch.design ? { ...patch.design } : null;
-      }
-      if (Object.prototype.hasOwnProperty.call(patch, "color")) {
-        updated.color = patch.color ? { ...patch.color } : null;
-      }
-      return { ...prev, [fid]: updated };
+    initedRef.current = true;
+    setFingerStates({
+      'left-thumb':   { shape: { ...selectedShape }, design: { ...selectedDesign }, color: { ...selectedColor } },
+      'left-index':   { shape: { ...selectedShape }, design: { ...selectedDesign }, color: { ...selectedColor } },
+      'left-middle':  { shape: { ...selectedShape }, design: { ...selectedDesign }, color: { ...selectedColor } },
+      'left-ring':    { shape: { ...selectedShape }, design: { ...selectedDesign }, color: { ...selectedColor } },
+      'left-pinky':   { shape: { ...selectedShape }, design: { ...selectedDesign }, color: { ...selectedColor } },
+      'right-thumb':  { shape: { ...selectedShape }, design: { ...selectedDesign }, color: { ...selectedColor } },
+      'right-index':  { shape: { ...selectedShape }, design: { ...selectedDesign }, color: { ...selectedColor } },
+      'right-middle': { shape: { ...selectedShape }, design: { ...selectedDesign }, color: { ...selectedColor } },
+      'right-ring':   { shape: { ...selectedShape }, design: { ...selectedDesign }, color: { ...selectedColor } },
+      'right-pinky':  { shape: { ...selectedShape }, design: { ...selectedDesign }, color: { ...selectedColor } },
     });
+  }, [selectedShape, selectedDesign, selectedColor]);
+
+  // Mirror the canonical state up to the parent so generate() + result screen can read it.
+  useEffect(() => { setFingerState(fingerStates); }, [fingerStates, setFingerState]);
+
+  // BUG 1 — updateFinger writes ONE finger's ONE field. Other 9 fingers untouched.
+  const updateFinger = (fingerId, field, value) => {
+    setFingerStates((prev) => ({
+      ...prev,
+      [fingerId]: {
+        ...prev[fingerId],
+        [field]: value,
+      },
+    }));
   };
 
-  // Convenience: use the very latest activeFinger via ref to dodge closure staleness.
-  const updateActiveFinger = (patch) => updateFingerById(activeFingerRef.current, patch);
-
   const applyToAll = () => {
-    const src = fingerState[activeFingerRef.current];
+    const src = fingerStates[activeFinger];
     if (!src) return;
-    setFingerState(() => {
-      const next = {};
-      for (const fid of fingerIds) {
-        next[fid] = {
-          shape: src.shape ? { ...src.shape } : null,
-          design: src.design ? { ...src.design } : null,
-          color: src.color ? { ...src.color } : null,
-        };
-      }
-      return next;
+    setFingerStates({
+      'left-thumb':   { shape: src.shape ? { ...src.shape } : null, design: src.design ? { ...src.design } : null, color: src.color ? { ...src.color } : null },
+      'left-index':   { shape: src.shape ? { ...src.shape } : null, design: src.design ? { ...src.design } : null, color: src.color ? { ...src.color } : null },
+      'left-middle':  { shape: src.shape ? { ...src.shape } : null, design: src.design ? { ...src.design } : null, color: src.color ? { ...src.color } : null },
+      'left-ring':    { shape: src.shape ? { ...src.shape } : null, design: src.design ? { ...src.design } : null, color: src.color ? { ...src.color } : null },
+      'left-pinky':   { shape: src.shape ? { ...src.shape } : null, design: src.design ? { ...src.design } : null, color: src.color ? { ...src.color } : null },
+      'right-thumb':  { shape: src.shape ? { ...src.shape } : null, design: src.design ? { ...src.design } : null, color: src.color ? { ...src.color } : null },
+      'right-index':  { shape: src.shape ? { ...src.shape } : null, design: src.design ? { ...src.design } : null, color: src.color ? { ...src.color } : null },
+      'right-middle': { shape: src.shape ? { ...src.shape } : null, design: src.design ? { ...src.design } : null, color: src.color ? { ...src.color } : null },
+      'right-ring':   { shape: src.shape ? { ...src.shape } : null, design: src.design ? { ...src.design } : null, color: src.color ? { ...src.color } : null },
+      'right-pinky':  { shape: src.shape ? { ...src.shape } : null, design: src.design ? { ...src.design } : null, color: src.color ? { ...src.color } : null },
     });
     toast.success("Applied to all 10 fingers");
   };
 
   const currentFingers = fingerIds.filter((f) => f.startsWith(`${hand}-`));
-  const editing = fingerState[activeFinger];
-  const editingFingerLabel = `${activeFinger.startsWith("l-") ? "Left" : "Right"} ${FINGER_LABELS[activeFinger.split("-")[1]]}`;
+  const editing = fingerStates[activeFinger];
+  const editingFingerLabel = `${activeFinger.startsWith("left-") ? "Left" : "Right"} ${FINGER_LABELS[activeFinger.split("-")[1]]}`;
 
   return (
     <section className="slide-up" style={{ paddingBottom: 140 }} data-testid="step-customize">
@@ -693,7 +687,7 @@ function StepCustomize({
 
       {/* Hand toggle */}
       <div className="flex gap-2 mb-4">
-        {[{k:"l",label:"Left hand"},{k:"r",label:"Right hand"}].map((h) => (
+        {[{k:"left",label:"Left hand"},{k:"right",label:"Right hand"}].map((h) => (
           <button
             key={h.k}
             onClick={() => { setHand(h.k); setActiveFinger(`${h.k}-${activeFinger.split("-")[1]}`); }}
@@ -710,7 +704,7 @@ function StepCustomize({
       {/* STEP 3: Clean nail-slot selector — colour only, no photos */}
       <div className="grid grid-cols-5 gap-3 mb-3 justify-items-center" data-testid="finger-preview-row">
         {currentFingers.map((fid) => {
-          const fs = fingerState[fid];
+          const fs = fingerStates[fid];
           const fname = FINGER_LABELS[fid.split("-")[1]];
           const isActive = fid === activeFinger;
           return (
@@ -766,7 +760,7 @@ function StepCustomize({
               return (
                 <button
                   key={s.id}
-                  onClick={() => updateActiveFinger({ shape: s })}
+                  onClick={() => updateFinger(activeFinger, 'shape', s)}
                   className={`rounded-xl overflow-hidden bg-white border-2 transition text-left ${sel ? "border-[#C2185B]" : "border-transparent"}`}
                   data-testid={`finger-shape-${s.id}`}
                 >
@@ -801,7 +795,7 @@ function StepCustomize({
               return (
                 <button
                   key={d.id}
-                  onClick={() => updateActiveFinger({ design: d })}
+                  onClick={() => updateFinger(activeFinger, 'design', d)}
                   className={`rounded-xl overflow-hidden bg-white border-2 transition text-left ${sel ? "border-[#C2185B]" : "border-transparent"}`}
                   data-testid={`finger-design-${d.id}`}
                 >
@@ -829,7 +823,7 @@ function StepCustomize({
                     return (
                       <button
                         key={`${c.hex}-${i}`}
-                        onClick={() => updateActiveFinger({ color: c })}
+                        onClick={() => updateFinger(activeFinger, 'color', c)}
                         className={`w-7 h-7 rounded-full transition flex items-center justify-center ${
                           sel ? "ring-[3px] ring-[#FFD700] scale-110" : "ring-1 ring-black/10"
                         }`}
