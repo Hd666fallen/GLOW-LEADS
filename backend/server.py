@@ -17,8 +17,9 @@ from typing import Any, Optional
 
 import bcrypt
 import jwt
-from fastapi import APIRouter, Depends, FastAPI, Header, HTTPException, status
+from fastapi import APIRouter, Depends, FastAPI, File, Form, Header, HTTPException, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from dotenv import load_dotenv
@@ -143,6 +144,7 @@ class LeadIn(BaseModel):
     detected_style_id: Optional[str] = None
     color_hex: Optional[str] = None
     color_name: Optional[str] = None
+    finger_customizations: Optional[list[dict]] = None
 
 
 class BookingIn(BaseModel):
@@ -234,6 +236,11 @@ def clean_user_public(user: dict) -> dict:
 app = FastAPI(title="GlowLeads API")
 api = APIRouter(prefix="/api")
 
+# Uploads directory + static mount (for tech-uploaded style photos)
+UPLOADS_DIR = ROOT_DIR / "uploads"
+UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/api/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uploads")
+
 
 @api.get("/")
 async def root():
@@ -303,11 +310,40 @@ async def list_styles():
 
 
 @api.get("/funnel/config")
-async def funnel_config():
-    """Shapes + design groups + color groups for the new funnel flow."""
+async def funnel_config(tech_slug: Optional[str] = None):
+    """Shapes + design groups + color groups for the new funnel flow.
+
+    If ``tech_slug`` is supplied, override design.image with any tech-uploaded
+    photo (matched by design_id OR case-insensitive name match against the
+    tech's style library) and tag the design with ``custom_by_tech``.
+    """
+    design_groups = DESIGN_GROUPS
+    if tech_slug:
+        tech = await db.users.find_one(
+            {"slug": tech_slug, "role": "tech"},
+            {"_id": 0, "style_photos": 1},
+        )
+        photos = (tech or {}).get("style_photos") or {}
+        if photos:
+            # Build a name→url map using styles_data so we can match designs by name
+            name_to_url: dict[str, str] = {}
+            for sid, url in photos.items():
+                if sid in STYLE_MAP:
+                    name_to_url[STYLE_MAP[sid]["name"].lower()] = url
+            new_groups = []
+            for g in DESIGN_GROUPS:
+                new_designs = []
+                for d in g["designs"]:
+                    override = photos.get(d["id"]) or name_to_url.get(d["label"].lower())
+                    if override:
+                        new_designs.append({**d, "image": override, "custom_by_tech": True})
+                    else:
+                        new_designs.append(d)
+                new_groups.append({**g, "designs": new_designs})
+            design_groups = new_groups
     return {
         "shapes": SHAPES,
-        "design_groups": DESIGN_GROUPS,
+        "design_groups": design_groups,
         "color_groups": COLOR_GROUPS,
     }
 
@@ -524,6 +560,7 @@ async def create_lead(data: LeadIn):
         "style_name": style["name"] if style else data.style_id,
         "preview_image": data.preview_image or (style["image"] if style else ""),
         "detected_style_id": data.detected_style_id,
+        "finger_customizations": data.finger_customizations or [],
         "status": "not_booked",
         "follow_ups_sent": 0,
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -648,6 +685,7 @@ async def tech_styles(user: dict = Depends(require_tech)):
     return {
         "all": STYLES,
         "enabled_ids": list(enabled),
+        "style_photos": user.get("style_photos") or {},
     }
 
 
@@ -656,6 +694,61 @@ async def update_tech_styles(data: StylesUpdate, user: dict = Depends(require_te
     valid = [sid for sid in data.enabled_style_ids if sid in STYLE_MAP]
     await db.users.update_one({"id": user["id"]}, {"$set": {"enabled_style_ids": valid}})
     return {"enabled_ids": valid}
+
+
+# --- Tech-uploaded style/design photos -------------------------------------
+
+ALLOWED_IMG_EXT = {"jpg", "jpeg", "png", "webp"}
+MAX_UPLOAD_BYTES = 5 * 1024 * 1024  # 5MB
+
+
+@api.post("/tech/me/style-photo")
+async def upload_style_photo(
+    style_id: str = Form(...),
+    file: UploadFile = File(...),
+    user: dict = Depends(require_tech),
+):
+    """Save a tech-uploaded photo for a given style/design id."""
+    if style_id not in STYLE_MAP and style_id not in DESIGN_MAP:
+        raise HTTPException(status_code=400, detail="Unknown style id")
+    ext = (file.filename or "").rsplit(".", 1)[-1].lower()
+    if ext not in ALLOWED_IMG_EXT:
+        raise HTTPException(status_code=400, detail="Only JPG, PNG or WEBP allowed")
+    body = await file.read()
+    if len(body) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=400, detail="File too large (max 5MB)")
+    tech_dir = UPLOADS_DIR / user["slug"]
+    tech_dir.mkdir(parents=True, exist_ok=True)
+    # Remove any older variant for this style_id (different extension)
+    for old in tech_dir.glob(f"{style_id}.*"):
+        try:
+            old.unlink()
+        except OSError:
+            pass
+    out_path = tech_dir / f"{style_id}.{ext}"
+    out_path.write_bytes(body)
+    url = f"/api/uploads/{user['slug']}/{style_id}.{ext}"
+    await db.users.update_one(
+        {"id": user["id"]},
+        {"$set": {f"style_photos.{style_id}": url}},
+    )
+    return {"style_id": style_id, "url": url}
+
+
+@api.delete("/tech/me/style-photo/{style_id}")
+async def remove_style_photo(style_id: str, user: dict = Depends(require_tech)):
+    tech_dir = UPLOADS_DIR / user["slug"]
+    if tech_dir.exists():
+        for old in tech_dir.glob(f"{style_id}.*"):
+            try:
+                old.unlink()
+            except OSError:
+                pass
+    await db.users.update_one(
+        {"id": user["id"]},
+        {"$unset": {f"style_photos.{style_id}": ""}},
+    )
+    return {"style_id": style_id, "removed": True}
 
 
 @api.get("/tech/me/appointments")

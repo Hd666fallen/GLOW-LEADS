@@ -33,6 +33,19 @@ export default function CustomerFunnel() {
   const [design, setDesign] = useState(null);
   const [color, setColor] = useState(null);
 
+  // Per-finger customizer state (Step 5)
+  const FINGER_IDS = ["l-thumb","l-index","l-middle","l-ring","l-pinky","r-thumb","r-index","r-middle","r-ring","r-pinky"];
+  const [fingerState, setFingerState] = useState(null);
+  const [fingerInited, setFingerInited] = useState(false);
+
+  const initFingerStateIfNeeded = (force = false) => {
+    if (!shape || !design || !color) return;
+    if (!force && fingerInited) return;
+    const base = { shape, design, color };
+    setFingerState(FINGER_IDS.reduce((acc, fid) => { acc[fid] = { ...base }; return acc; }, {}));
+    setFingerInited(true);
+  };
+
   const [generating, setGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [progressMsg, setProgressMsg] = useState("");
@@ -49,7 +62,7 @@ export default function CustomerFunnel() {
 
   useEffect(() => {
     api.get(`/public/tech/${slug}`).then((r) => setTech(r.data.tech)).catch(() => toast.error("Nail tech not found"));
-    api.get("/funnel/config").then((r) => setConfig(r.data));
+    api.get(`/funnel/config?tech_slug=${encodeURIComponent(slug)}`).then((r) => setConfig(r.data));
   }, [slug]);
 
   const generate = async (overrides = {}) => {
@@ -59,7 +72,7 @@ export default function CustomerFunnel() {
     if (!useDesign) { toast.error("Pick a design first"); return; }
     setGenerating(true);
     setProgress(0);
-    setStep(5);
+    setStep(6);
     const messages = [
       "Analyzing your hand...",
       `Applying ${useDesign.label}...`,
@@ -73,6 +86,17 @@ export default function CustomerFunnel() {
       mIdx = Math.min(mIdx + 1, messages.length - 1);
       setProgressMsg(messages[mIdx]);
     }, 800);
+    // Optional per-finger customizations payload (currently visual-only)
+    const fingerCustomizations = overrides.fingerCustomizations
+      || (fingerInited && fingerState
+            ? Object.entries(fingerState).map(([fid, fs]) => ({
+                finger_id: fid,
+                shape_id: fs.shape?.id,
+                design_id: fs.design?.id,
+                color_hex: fs.color?.hex,
+                color_name: fs.color?.name,
+              }))
+            : null);
     try {
       const r = await api.post("/ai/try-on", {
         image_base64: imageDataUrl,
@@ -94,6 +118,7 @@ export default function CustomerFunnel() {
           preview_image: r.data.preview,
           color_hex: useColor?.hex,
           color_name: useColor?.name,
+          finger_customizations: fingerCustomizations,
         });
         setLeadId(lead.data.id);
       }
@@ -119,7 +144,9 @@ export default function CustomerFunnel() {
           <div className="w-9 h-9 rounded-full bg-[#C2185B] flex items-center justify-center">
             <Sparkles className="w-5 h-5 text-[#FFD700]" />
           </div>
-          <span className="font-serif text-xl font-bold text-[#C2185B]">GlowLeads</span>
+          <span className="font-serif text-xl font-bold text-[#C2185B]" data-testid="funnel-business-name">
+            {tech?.business_name ? `${tech.business_name} ✨` : "GlowLeads"}
+          </span>
         </Link>
         <div className="text-xs px-3 py-1.5 rounded-full bg-white/70 text-[#C2185B] font-semibold border border-[#C2185B]/20" data-testid="funnel-step-indicator">
           Step {step} of 6
@@ -173,9 +200,20 @@ export default function CustomerFunnel() {
           selected={color}
           onSelect={setColor}
           onBack={() => setStep(3)}
-          onApply={() => generate()}
+          onApply={() => { initFingerStateIfNeeded(true); setStep(5); }}
         />}
-        {step === 5 && <StepResult
+        {step === 5 && <StepCustomize
+          shapes={config.shapes}
+          designGroups={config.design_groups}
+          colorGroups={config.color_groups}
+          fingerIds={FINGER_IDS}
+          fingerState={fingerState}
+          setFingerState={setFingerState}
+          onBack={() => setStep(4)}
+          onSkip={() => generate()}
+          onGenerate={() => generate()}
+        />}
+        {step === 6 && <StepResult
           tech={tech}
           imageDataUrl={imageDataUrl}
           previewUrl={previewUrl}
@@ -185,9 +223,11 @@ export default function CustomerFunnel() {
           shape={shape}
           design={design}
           color={color}
+          fingerState={fingerState}
           onChangeColor={() => setSheet("color")}
           onChangeDesign={() => setSheet("design")}
           onChangeShape={() => setSheet("shape")}
+          onCustomize={() => setStep(5)}
           onBook={() => setBookingOpen(true)}
         />}
       </main>
@@ -420,6 +460,7 @@ function StepDesign({ groups, selected, onPick, onBack }) {
 
 function DesignGrid({ groups, active, selected, onPick }) {
   const list = active ? (groups.find((g) => g.id === active)?.designs || []) : groups.flatMap((g) => g.designs);
+  const absolutise = (url) => (url && url.startsWith("/api/") ? `${process.env.REACT_APP_BACKEND_URL}${url}` : url);
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
       {list.map((d) => (
@@ -436,8 +477,13 @@ function DesignGrid({ groups, active, selected, onPick }) {
               {d.badge}
             </span>
           )}
+          {d.custom_by_tech && (
+            <span className="absolute top-2 right-2 z-10 bg-[#C2185B] text-white text-[9px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full" data-testid={`her-work-${d.id}`}>
+              Her work ✨
+            </span>
+          )}
           <div className="h-[65%] overflow-hidden">
-            <img src={d.image} alt={d.label} className="w-full h-full object-cover group-hover:scale-105 transition" loading="lazy" />
+            <img src={absolutise(d.image)} alt={d.label} className="w-full h-full object-cover group-hover:scale-105 transition" loading="lazy" />
           </div>
           <div className="h-[35%] px-3 py-2 flex flex-col justify-center">
             <h3 className="font-serif text-sm font-semibold leading-tight truncate">{d.label}</h3>
@@ -514,8 +560,261 @@ function ColorPalette({ groups, selected, onSelect }) {
   );
 }
 
-/* ---------- Step 5: Result + change actions ---------- */
-function StepResult({ tech, imageDataUrl, previewUrl, generating, progress, progressMsg, shape, design, color, onChangeColor, onChangeDesign, onChangeShape, onBook }) {
+/* ---------- Step 5: Per-finger customizer ---------- */
+const FINGER_LABELS = { thumb: "Thumb", index: "Index", middle: "Middle", ring: "Ring", pinky: "Pinky" };
+const FINGER_ORDER = ["thumb","index","middle","ring","pinky"];
+
+function absoluteImg(url) {
+  return url && url.startsWith("/api/") ? `${process.env.REACT_APP_BACKEND_URL}${url}` : url;
+}
+
+function StepCustomize({ shapes, designGroups, colorGroups, fingerIds, fingerState, setFingerState, onBack, onSkip, onGenerate }) {
+  const [hand, setHand] = useState("l"); // 'l' | 'r'
+  const [activeFinger, setActiveFinger] = useState("l-ring");
+  const [designCat, setDesignCat] = useState(designGroups[0]?.id);
+
+  if (!fingerState) {
+    return (
+      <section className="slide-up text-center py-10" data-testid="step-customize">
+        <Loader2 className="w-6 h-6 animate-spin text-[#C2185B] mx-auto" />
+        <p className="text-sm opacity-70 mt-3">Preparing your fingers...</p>
+      </section>
+    );
+  }
+
+  const updateFinger = (fid, patch) => {
+    setFingerState((prev) => ({
+      ...prev,
+      [fid]: { ...prev[fid], ...patch },
+    }));
+  };
+
+  const applyToAll = () => {
+    const src = fingerState[activeFinger];
+    if (!src) return;
+    setFingerState((prev) => fingerIds.reduce((acc, fid) => { acc[fid] = { ...src }; return acc; }, {}));
+    toast.success("Applied to all 10 fingers");
+  };
+
+  const currentFingers = fingerIds.filter((f) => f.startsWith(`${hand}-`));
+  const editing = fingerState[activeFinger];
+  const editingFingerLabel = `${activeFinger.startsWith("l-") ? "Left" : "Right"} ${FINGER_LABELS[activeFinger.split("-")[1]]}`;
+
+  return (
+    <section className="slide-up pb-40" data-testid="step-customize">
+      <button onClick={onBack} className="mb-3 text-sm opacity-70 inline-flex items-center gap-2"><ArrowLeft className="w-4 h-4" /> Back</button>
+      <h2 className="funnel-headline text-3xl md:text-4xl font-bold mb-1">Make every finger yours 💅</h2>
+      <p className="text-sm opacity-70 mb-5">Tap any finger to customize it individually — or skip to keep the same look</p>
+
+      {/* Hand toggle */}
+      <div className="flex gap-2 mb-4">
+        {[{k:"l",label:"Left hand"},{k:"r",label:"Right hand"}].map((h) => (
+          <button
+            key={h.k}
+            onClick={() => setHand(h.k)}
+            className={`flex-1 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition ${
+              hand === h.k ? "bg-[#C2185B] text-white" : "bg-white text-[#C2185B] border border-[#C2185B]/30"
+            }`}
+            data-testid={`hand-toggle-${h.k}`}
+          >
+            {h.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Finger preview row */}
+      <div className="grid grid-cols-5 gap-2 mb-3" data-testid="finger-preview-row">
+        {currentFingers.map((fid) => {
+          const fs = fingerState[fid];
+          const fname = FINGER_LABELS[fid.split("-")[1]];
+          const isActive = fid === activeFinger;
+          return (
+            <button
+              key={fid}
+              onClick={() => setActiveFinger(fid)}
+              className="flex flex-col items-center group"
+              data-testid={`finger-${fid}`}
+            >
+              <div
+                className={`relative w-12 h-16 overflow-hidden bg-white shadow-sm transition ${
+                  isActive ? "ring-2 ring-[#C2185B] shadow-[0_0_0_4px_rgba(255,215,0,0.45)] -translate-y-1" : "ring-1 ring-black/5"
+                }`}
+                style={{ borderRadius: "24px 24px 8px 8px" }}
+              >
+                {fs?.design?.image && (
+                  <img src={absoluteImg(fs.design.image)} alt="" className="w-full h-full object-cover" />
+                )}
+                {fs?.color?.hex && (
+                  <div className="absolute inset-0 mix-blend-multiply opacity-60" style={{ background: fs.color.hex }} />
+                )}
+              </div>
+              <span className={`text-[10px] mt-1 font-semibold ${isActive ? "text-[#C2185B]" : "text-gray-500"}`}>{fname}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <button
+        onClick={applyToAll}
+        className="w-full text-xs text-[#C2185B] underline font-semibold mb-6"
+        data-testid="apply-to-all-btn"
+      >
+        Apply to all fingers
+      </button>
+
+      {/* Editor panel */}
+      <div className="bg-white rounded-2xl shadow-sm border border-pink-100 p-4 space-y-5" data-testid="finger-editor">
+        <p className="text-xs uppercase tracking-[0.2em] text-[#C2185B] font-semibold">Editing: {editingFingerLabel}</p>
+
+        {/* Shape mini-grid */}
+        <div>
+          <p className="text-xs font-semibold text-gray-700 mb-2">Shape</p>
+          <div className="grid grid-cols-3 gap-2">
+            {shapes.map((s) => {
+              const sel = editing?.shape?.id === s.id;
+              return (
+                <button
+                  key={s.id}
+                  onClick={() => updateFinger(activeFinger, { shape: s })}
+                  className={`rounded-xl overflow-hidden bg-white border-2 transition text-left ${sel ? "border-[#C2185B]" : "border-transparent"}`}
+                  data-testid={`finger-shape-${s.id}`}
+                >
+                  <img src={absoluteImg(s.image)} alt={s.label} className="w-full h-[65px] object-cover" loading="lazy" />
+                  <p className="text-[10px] font-semibold px-1.5 py-1 truncate">{s.label}</p>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Design mini-grid */}
+        <div>
+          <p className="text-xs font-semibold text-gray-700 mb-2">Design</p>
+          <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1.5 mb-2">
+            {designGroups.map((g) => (
+              <button
+                key={g.id}
+                onClick={() => setDesignCat(g.id)}
+                className={`shrink-0 text-[10px] px-2.5 py-1 rounded-full font-semibold uppercase tracking-wider border ${
+                  designCat === g.id ? "bg-[#C2185B] text-white border-[#C2185B]" : "bg-white text-[#C2185B] border-[#C2185B]/30"
+                }`}
+                data-testid={`finger-design-cat-${g.id}`}
+              >
+                {g.label}
+              </button>
+            ))}
+          </div>
+          <div className="grid grid-cols-3 gap-2 max-h-[260px] overflow-y-auto pr-1">
+            {(designGroups.find((g) => g.id === designCat)?.designs || []).map((d) => {
+              const sel = editing?.design?.id === d.id;
+              return (
+                <button
+                  key={d.id}
+                  onClick={() => updateFinger(activeFinger, { design: d })}
+                  className={`rounded-xl overflow-hidden bg-white border-2 transition text-left ${sel ? "border-[#C2185B]" : "border-transparent"}`}
+                  data-testid={`finger-design-${d.id}`}
+                >
+                  <img src={absoluteImg(d.image)} alt={d.label} className="w-full h-[55px] object-cover" loading="lazy" />
+                  <div className="px-1.5 py-1">
+                    <p className="text-[10px] font-semibold truncate leading-tight">{d.label}</p>
+                    <p className="text-[9px] text-[#C2185B] font-semibold">${d.price_range.low}–${d.price_range.high}</p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Color swatches */}
+        <div>
+          <p className="text-xs font-semibold text-gray-700 mb-2">Colour</p>
+          <div className="space-y-3 max-h-[200px] overflow-y-auto pr-1">
+            {colorGroups.map((g) => (
+              <div key={g.id}>
+                <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-1">{g.label}</p>
+                <div className="flex gap-1.5 flex-wrap">
+                  {g.colors.map((c, i) => {
+                    const sel = editing?.color?.hex === c.hex && editing?.color?.name === c.name;
+                    return (
+                      <button
+                        key={`${c.hex}-${i}`}
+                        onClick={() => updateFinger(activeFinger, { color: c })}
+                        className={`w-7 h-7 rounded-full transition flex items-center justify-center ${
+                          sel ? "ring-[3px] ring-[#FFD700] scale-110" : "ring-1 ring-black/10"
+                        }`}
+                        style={{ background: c.hex }}
+                        title={`${c.name} — ${c.brand}`}
+                        data-testid={`finger-color-${c.hex.replace("#","")}`}
+                      >
+                        {sel && <Check className="w-3 h-3 text-white drop-shadow" strokeWidth={3} />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Full look summary */}
+      <div className="mt-6 bg-[#fce4ec]/30 rounded-2xl p-4" data-testid="summary-strip">
+        <p className="text-xs uppercase tracking-[0.2em] text-[#C2185B] font-semibold mb-3">Your full look</p>
+        {["l","r"].map((h) => (
+          <div key={h} className="mb-3 last:mb-0">
+            <p className="text-[11px] text-gray-500 mb-1">{h === "l" ? "Left hand" : "Right hand"}</p>
+            <div className="grid grid-cols-5 gap-1.5">
+              {FINGER_ORDER.map((finger) => {
+                const fid = `${h}-${finger}`;
+                const fs = fingerState[fid];
+                return (
+                  <button
+                    key={fid}
+                    onClick={() => { setHand(h); setActiveFinger(fid); }}
+                    className="flex flex-col items-center"
+                    data-testid={`summary-${fid}`}
+                  >
+                    <div
+                      className="relative overflow-hidden bg-white ring-1 ring-black/5"
+                      style={{ width: 34, height: 46, borderRadius: "16px 16px 6px 6px" }}
+                    >
+                      {fs?.design?.image && <img src={absoluteImg(fs.design.image)} alt="" className="w-full h-full object-cover" />}
+                      {fs?.color?.hex && <div className="absolute inset-0 mix-blend-multiply opacity-60" style={{ background: fs.color.hex }} />}
+                    </div>
+                    <span className="text-[9px] mt-1 text-gray-500">{FINGER_LABELS[finger]}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Sticky bottom CTAs */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-[#C2185B]/10 px-5 py-3 z-30 shadow-2xl">
+        <div className="max-w-6xl mx-auto space-y-2">
+          <Button
+            onClick={onGenerate}
+            className="funnel-cta w-full rounded-full py-6 text-base"
+            data-testid="customize-generate-btn"
+          >
+            Generate my look <Sparkles className="w-5 h-5 ml-2" />
+          </Button>
+          <button
+            onClick={onSkip}
+            className="block mx-auto text-xs text-gray-500 underline"
+            data-testid="customize-skip-btn"
+          >
+            Skip — same look for all
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ---------- Step 6: Result + change actions ---------- */
+function StepResult({ tech, imageDataUrl, previewUrl, generating, progress, progressMsg, shape, design, color, fingerState, onChangeColor, onChangeDesign, onChangeShape, onCustomize, onBook }) {
   const dayName = new Date(Date.now() + 86400000 * 3).toLocaleDateString("en-US", { weekday: "long" });
   return (
     <section className="max-w-3xl mx-auto pt-2 slide-up pb-32" data-testid="step-result">
@@ -540,15 +839,18 @@ function StepResult({ tech, imageDataUrl, previewUrl, generating, progress, prog
         )}
       </div>
 
-      <div className="grid grid-cols-3 gap-3 mt-6">
-        <Button variant="outline" onClick={onChangeColor} className="rounded-full py-6 border-[#C2185B]/30" disabled={generating} data-testid="change-color-btn">
+      <div className="grid grid-cols-4 gap-2 mt-6">
+        <Button variant="outline" onClick={onChangeColor} className="rounded-full py-5 border-[#C2185B]/30 text-xs" disabled={generating} data-testid="change-color-btn">
           🎨 Colour
         </Button>
-        <Button variant="outline" onClick={onChangeDesign} className="rounded-full py-6 border-[#C2185B]/30" disabled={generating} data-testid="change-design-btn">
+        <Button variant="outline" onClick={onChangeDesign} className="rounded-full py-5 border-[#C2185B]/30 text-xs" disabled={generating} data-testid="change-design-btn">
           💅 Design
         </Button>
-        <Button variant="outline" onClick={onChangeShape} className="rounded-full py-6 border-[#C2185B]/30" disabled={generating} data-testid="change-shape-btn">
+        <Button variant="outline" onClick={onChangeShape} className="rounded-full py-5 border-[#C2185B]/30 text-xs" disabled={generating} data-testid="change-shape-btn">
           ✋ Shape
+        </Button>
+        <Button variant="outline" onClick={onCustomize} className="rounded-full py-5 border-[#C2185B]/30 text-xs" disabled={generating} data-testid="customize-fingers-btn">
+          ✋✋ Fingers
         </Button>
       </div>
 

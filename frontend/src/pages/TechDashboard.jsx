@@ -4,7 +4,7 @@ import { api, currentUser, currentToken, clearAuth, verifyAuth, saveAuth } from 
 import { toast } from "sonner";
 import {
   Home as HomeIcon, Calendar, Users, Settings as SettingsIcon,
-  LogOut, Sparkles, Phone, MessageSquare, Share2, Copy, Check, Star,
+  LogOut, Sparkles, Phone, MessageSquare, Share2, Copy, Check, Star, X, ImagePlus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -103,6 +103,42 @@ function HomeTab({ user }) {
         <StatCard label="Revenue" value={`$${stats?.revenue_this_month ?? 0}`} testid="stat-revenue" />
       </div>
 
+      <div className="tech-card p-5 mb-5 bg-gradient-to-br from-[#FADADD]/30 to-white border-2 border-[#C2185B]/20" data-testid="funnel-link-card">
+        <p className="text-xs text-[#C2185B] uppercase tracking-wider font-semibold mb-3">Your funnel link</p>
+        <div className="flex items-center gap-2 bg-white rounded-xl p-3 text-sm break-all shadow-sm border border-pink-100">
+          <span className="flex-1 truncate font-semibold text-gray-800" data-testid="booking-link">{link}</span>
+          <button
+            onClick={() => { navigator.clipboard.writeText(link); setCopied(true); toast.success("Copied!"); setTimeout(() => setCopied(false), 1500); }}
+            className="p-2 hover:bg-pink-50 rounded-lg shrink-0"
+            data-testid="copy-link-btn"
+            aria-label="Copy funnel link"
+          >
+            {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4 text-[#C2185B]" />}
+          </button>
+        </div>
+        <div className="grid grid-cols-[auto_1fr] gap-4 mt-4 items-center">
+          <img
+            src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(link)}`}
+            alt="Funnel QR code"
+            className="w-[110px] h-[110px] rounded-xl border border-pink-200 bg-white p-1"
+            data-testid="funnel-qr-code"
+          />
+          <div className="space-y-2">
+            <Button
+              variant="outline"
+              className="w-full rounded-full border-[#C2185B] text-[#C2185B] hover:bg-[#C2185B] hover:text-white"
+              onClick={() => window.open(link, "_blank")}
+              data-testid="preview-funnel-btn"
+            >
+              <Share2 className="w-4 h-4 mr-2" /> Preview my funnel
+            </Button>
+            <p className="text-[11px] text-gray-500 leading-snug">
+              Scan or share this QR on your Instagram bio, business card or front desk.
+            </p>
+          </div>
+        </div>
+      </div>
+
       <div className="tech-card p-5 mb-5" data-testid="activity-card">
         <div className="flex items-center justify-between mb-2">
           <p className="text-xs text-gray-500 uppercase tracking-wider">Live activity</p>
@@ -125,28 +161,6 @@ function HomeTab({ user }) {
           {(!stats?.activity || stats.activity.length === 0) && (
             <p className="text-sm text-gray-400">No activity yet — share your booking link!</p>
           )}
-        </div>
-      </div>
-
-      <div className="tech-card p-5">
-        <p className="text-xs text-gray-500 uppercase tracking-wider mb-3">Your booking link</p>
-        <div className="flex items-center gap-2 bg-gray-50 rounded-xl p-3 text-sm break-all">
-          <span className="flex-1 truncate" data-testid="booking-link">{link}</span>
-          <button
-            onClick={() => { navigator.clipboard.writeText(link); setCopied(true); toast.success("Copied!"); setTimeout(() => setCopied(false), 1500); }}
-            className="p-2 hover:bg-gray-200 rounded-lg"
-            data-testid="copy-link-btn"
-          >
-            {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
-          </button>
-        </div>
-        <div className="grid grid-cols-2 gap-2 mt-3">
-          <Button variant="outline" className="rounded-full" onClick={() => window.open(link, "_blank")} data-testid="preview-page-btn">
-            <Share2 className="w-4 h-4 mr-2" /> Preview page
-          </Button>
-          <Button className="rounded-full rose-gold-gradient" data-testid="send-promo-btn">
-            <Sparkles className="w-4 h-4 mr-2" /> Send promo
-          </Button>
         </div>
       </div>
     </div>
@@ -405,11 +419,12 @@ function MyPage({ user }) {
 }
 
 function StyleManager() {
-  const [data, setData] = useState({ all: [], enabled_ids: [] });
+  const [data, setData] = useState({ all: [], enabled_ids: [], style_photos: {} });
   const [q, setQ] = useState("");
   const [cat, setCat] = useState("ALL");
   const [prices, setPrices] = useState({});
-  useEffect(() => { api.get("/tech/me/styles").then((r) => setData(r.data)); }, []);
+  const [uploading, setUploading] = useState(null);
+  useEffect(() => { api.get("/tech/me/styles").then((r) => setData({ style_photos: {}, ...r.data })); }, []);
 
   const toggle = async (id) => {
     const enabled = new Set(data.enabled_ids);
@@ -418,6 +433,38 @@ function StyleManager() {
     setData({ ...data, enabled_ids: next });
     try { await api.put("/tech/me/styles", { enabled_style_ids: next }); }
     catch { toast.error("Couldn't update"); }
+  };
+
+  const uploadPhoto = async (styleId, file) => {
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { toast.error("Max 5MB"); return; }
+    setUploading(styleId);
+    try {
+      const fd = new FormData();
+      fd.append("style_id", styleId);
+      fd.append("file", file);
+      const r = await api.post("/tech/me/style-photo", fd, { headers: { "Content-Type": "multipart/form-data" } });
+      setData((d) => ({ ...d, style_photos: { ...(d.style_photos || {}), [styleId]: r.data.url } }));
+      toast.success("Photo uploaded ✨");
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Upload failed");
+    } finally {
+      setUploading(null);
+    }
+  };
+
+  const removePhoto = async (styleId) => {
+    try {
+      await api.delete(`/tech/me/style-photo/${styleId}`);
+      setData((d) => {
+        const next = { ...(d.style_photos || {}) };
+        delete next[styleId];
+        return { ...d, style_photos: next };
+      });
+      toast.success("Photo removed");
+    } catch {
+      toast.error("Couldn't remove");
+    }
   };
 
   const enabledSet = new Set(data.enabled_ids);
@@ -431,6 +478,8 @@ function StyleManager() {
     FINISHES: "Finishes", FRENCH: "French", OMBRE: "Ombre",
     NAIL_ART: "Art", EMBELLISHMENTS: "Gems", COLORS: "Colors", SPECIALTY: "Specialty",
   }[c] || c);
+
+  const absolutise = (url) => (url && url.startsWith("/api/") ? `${process.env.REACT_APP_BACKEND_URL}${url}` : url);
 
   return (
     <div data-testid="style-manager-panel">
@@ -458,13 +507,32 @@ function StyleManager() {
         {filtered.map((s) => {
           const on = enabledSet.has(s.id);
           const price = prices[s.id] ?? s.price_range.low;
+          const customUrl = data.style_photos?.[s.id];
+          const isUploading = uploading === s.id;
           return (
             <div key={s.id} className="tech-card p-3 flex items-center gap-3" data-testid={`style-row-${s.id}`}>
-              <StyleImage src={s.image} category={s.category} className="w-12 h-12 rounded-lg object-cover" />
+              <div className="relative w-12 h-12 shrink-0">
+                {customUrl ? (
+                  <img src={absolutise(customUrl)} alt={s.name} className="w-12 h-12 rounded-lg object-cover ring-2 ring-[#C2185B]" data-testid={`style-thumb-${s.id}`} />
+                ) : (
+                  <StyleImage src={s.image} category={s.category} className="w-12 h-12 rounded-lg object-cover" data-testid={`style-thumb-${s.id}`} />
+                )}
+                {customUrl && (
+                  <button
+                    onClick={() => removePhoto(s.id)}
+                    className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center shadow hover:bg-red-600"
+                    title="Remove photo"
+                    data-testid={`remove-photo-${s.id}`}
+                  >
+                    <X className="w-3 h-3" strokeWidth={3} />
+                  </button>
+                )}
+              </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <p className="text-sm font-semibold truncate">{s.name}</p>
                   <span className="text-[9px] bg-gray-100 text-gray-500 uppercase tracking-wider px-1.5 py-0.5 rounded">{catLabel(s.category)}</span>
+                  {customUrl && <span className="text-[9px] bg-[#C2185B] text-white uppercase tracking-wider px-1.5 py-0.5 rounded">Her work ✨</span>}
                 </div>
                 <div className="flex items-center gap-2 mt-1.5">
                   <span className="text-[10px] text-gray-400">Price $</span>
@@ -474,9 +542,20 @@ function StyleManager() {
                     className="w-16 text-xs border rounded px-2 py-0.5"
                     data-testid={`price-${s.id}`}
                   />
-                  <button className="text-[10px] text-[#B76E79] underline" data-testid={`photo-${s.id}`}>
-                    Upload photo
-                  </button>
+                  <label
+                    className={`text-[10px] inline-flex items-center gap-1 text-[#B76E79] underline cursor-pointer ${isUploading ? "opacity-50 pointer-events-none" : ""}`}
+                    data-testid={`upload-photo-${s.id}`}
+                  >
+                    <ImagePlus className="w-3 h-3" />
+                    {isUploading ? "Uploading..." : (customUrl ? "Replace photo" : "Upload photo")}
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="hidden"
+                      onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) uploadPhoto(s.id, f); }}
+                      data-testid={`upload-input-${s.id}`}
+                    />
+                  </label>
                 </div>
               </div>
               <Switch checked={on} onCheckedChange={() => toggle(s.id)} data-testid={`style-toggle-${s.id}`} />

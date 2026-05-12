@@ -44,6 +44,10 @@ Full-stack AI-powered lead generation SaaS platform for nail technicians with 3 
 - Seeds 1 agency + 5 techs (Sophie/Bella/Jade/Luxe MTL/Nailed It YYC — all Canadian) + 30 leads + 10 appts + pre-computed automation SMS logs
 - Startup purges any TEST_ data
 - **Iteration 4 (Feb 2026):** Replaced 3 broken Unsplash IDs (squoval shape, _MATTE, _GLITTER) with verified-200 URLs so every shape/design card renders — no blank cards.
+- **Iteration 5 (Feb 2026):**
+  - `POST /api/tech/me/style-photo` (multipart) + `DELETE /api/tech/me/style-photo/{id}` — tech-uploaded style photos saved to `/app/backend/uploads/{slug}/{id}.{ext}` and served via mounted `/api/uploads` static route. URLs persisted on `users.style_photos`.
+  - `GET /api/funnel/config?tech_slug=X` — overrides design.image with tech-uploaded photos (matched by design_id OR case-insensitive style name) and tags `custom_by_tech: true`.
+  - `LeadIn` accepts `finger_customizations` for per-finger picks.
 
 ### Frontend
 - Landing page with pulse-cta animation (box-shadow only, no layout jitter) + amber scarcity line
@@ -55,6 +59,12 @@ Full-stack AI-powered lead generation SaaS platform for nail technicians with 3 
 - Leads tab: Hot 🔥 / Warm 💛 / Cold 🧊 badges + separate "Win-back" section
 - Agency dashboard: sidebar + verifyAuth on mount (direct-URL nav works); Style Intel with drop-off %, competitor walking-in % bars, market gaps with requested counts
 - **Iteration 4 (Feb 2026):** Shape & Design grids enforced to strict compact layout — `grid-cols-2 md:grid-cols-3 gap-3`, fixed card height `h-[200px]`, image occupies `h-[65%]`, text section `h-[35%]` with truncated title + price/description. No blank cards, Instagram-style nail menu.
+- **Iteration 5 (Feb 2026) — separation of concerns into 3 distinct pages:**
+  - **Page 1 — Landing (`/`):** New 3-line headline "She saw it. / She tried it on. / *She booked it. 💅*" (last line italic pink Playfair). New subheadline. CTA renamed to "See a live demo →". Demo credentials removed from public view. Added **pricing section** (Starter $49 / Pro $99 / Agency $299) with feature lists. Replaced 3 generic feature cards with **AI Try-On / Smart Automations / Lead Intelligence**.
+  - **Page 2 — Customer funnel (`/try/:slug`):** Header now shows `tech.business_name ✨` (e.g. "Glow by Sophie ✨"). Zero GlowLeads pricing/demo-login references inside the funnel. Funnel is **now 6 numbered steps** (Upload → Shape → Design → Colour → **Per-finger Customizer (NEW)** → Result), plus the booking sheet.
+  - **Page 3 — Tech dashboard (`/tech` Home tab):** Prominent gradient pink-bordered **funnel-link card** moved directly under the stats row, containing the full URL, copy button, **QR code** (150×150 from api.qrserver.com) and a "Preview my funnel" button that opens `/try/<slug>` in a new tab.
+- **Iteration 5 — Styles tab photo upload:** Each style row now has a working "Upload photo" file picker → POST multipart to `/api/tech/me/style-photo`. Thumbnail updates immediately, a red **X** button reverts to the default stock photo, and changes persist after refresh (fetched from `/tech/me/styles` with `style_photos`). Uploaded photos automatically appear in the customer funnel design cards (matched by id or name) with a small pink **"Her work ✨"** badge.
+- **Iteration 5 — Per-finger customizer (Step 5):** New step initialized with all 10 fingers (`l-thumb`…`r-pinky`) matching the user's global shape/design/colour. Left/Right hand toggle, 48×64 finger preview row (rounded top, pink border + gold glow when active with `translateY(-5px)`), "Apply to all fingers" button, three-section editor (shape 3-col grid, design 3-col grid with category tabs, full color palette), 34×46 summary strip at bottom for both hands, sticky **"Generate my look ✨"** CTA + "Skip — same look for all" link. State updates use immutable spread per finger; other fingers are never reset.
 
 ## Bug fixes in this iteration
 - Fixed POST /api/bookings to actually persist all 3 SMS types (was only inserting booking_confirmation)
