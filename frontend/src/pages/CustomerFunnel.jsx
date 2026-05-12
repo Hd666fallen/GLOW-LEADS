@@ -226,7 +226,6 @@ export default function CustomerFunnel() {
           fingerIds={FINGER_IDS}
           fingerState={fingerState}
           setFingerState={setFingerState}
-          imageDataUrl={imageDataUrl}
           selectedShape={shape}
           selectedDesign={design}
           selectedColor={color}
@@ -586,17 +585,6 @@ function ColorPalette({ groups, selected, onSelect }) {
 const FINGER_LABELS = { thumb: "Thumb", index: "Index", middle: "Middle", ring: "Ring", pinky: "Pinky" };
 const FINGER_ORDER = ["thumb","index","middle","ring","pinky"];
 
-// Approximate nail-tip positions (as % of the photo card) on a typical palm-down hand photo.
-// hand 'l' = left hand viewed by customer (thumb on the RIGHT side of the photo).
-// We mirror horizontally for the right hand.
-const NAIL_OVERLAY_LAYOUT = {
-  thumb:  { left: 78, top: 50, width: 13, height: 16, rotate: 28 },
-  index:  { left: 22, top: 14, width: 12, height: 18, rotate: -6 },
-  middle: { left: 38, top: 6,  width: 12, height: 18, rotate: 0 },
-  ring:   { left: 54, top: 10, width: 12, height: 18, rotate: 4 },
-  pinky:  { left: 68, top: 24, width: 11, height: 16, rotate: 10 },
-};
-
 function absoluteImg(url) {
   return url && url.startsWith("/api/") ? `${process.env.REACT_APP_BACKEND_URL}${url}` : url;
 }
@@ -604,7 +592,7 @@ function absoluteImg(url) {
 function StepCustomize({
   shapes, designGroups, colorGroups,
   fingerIds, fingerState, setFingerState,
-  imageDataUrl, selectedShape, selectedDesign, selectedColor,
+  selectedShape, selectedDesign, selectedColor,
   onBack, onSkip, onGenerate,
 }) {
   const [hand, setHand] = useState("l");
@@ -813,48 +801,6 @@ function StepCustomize({
           </div>
         </div>
       </div>
-
-      {/* STEP 4: User's hand photo with live colour overlays on each nail */}
-      {imageDataUrl && (
-        <div className="mt-6" data-testid="hand-preview-card">
-          <p className="text-[#C2185B] font-semibold mb-2" style={{ fontSize: 14 }}>Your look so far</p>
-          <div
-            className="relative overflow-hidden bg-gray-50"
-            style={{ borderRadius: 16 }}
-          >
-            <img src={imageDataUrl} alt="Your hand" className="w-full h-auto block" />
-            {/* Overlay nails — show current hand only */}
-            {FINGER_ORDER.map((finger) => {
-              const fid = `${hand}-${finger}`;
-              const fs = fingerState[fid];
-              const layout = NAIL_OVERLAY_LAYOUT[finger];
-              if (!layout) return null;
-              const left = hand === "r" ? (100 - layout.left - layout.width) : layout.left;
-              return (
-                <div
-                  key={fid}
-                  style={{
-                    position: "absolute",
-                    left: `${left}%`,
-                    top: `${layout.top}%`,
-                    width: `${layout.width}%`,
-                    height: `${layout.height}%`,
-                    background: fs?.color?.hex || "transparent",
-                    borderRadius: "40% 40% 20% 20%",
-                    mixBlendMode: "multiply",
-                    opacity: 0.75,
-                    transform: `rotate(${hand === "r" ? -layout.rotate : layout.rotate}deg)`,
-                    transition: "all 0.2s ease",
-                    pointerEvents: "none",
-                  }}
-                  data-testid={`overlay-${fid}`}
-                  data-color={fs?.color?.hex || ""}
-                />
-              );
-            })}
-          </div>
-        </div>
-      )}
 
       {/* STEP 5: Floating Generate bar */}
       <div
