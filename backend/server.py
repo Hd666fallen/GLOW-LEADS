@@ -131,6 +131,7 @@ class TryOnIn(BaseModel):
     shape_id: Optional[str] = None
     color_hex: Optional[str] = None
     color_name: Optional[str] = None
+    finger_customizations: Optional[list[dict]] = None
 
 
 class LeadIn(BaseModel):
@@ -469,11 +470,51 @@ async def ai_try_on(data: TryOnIn):
         color_text = ""
         if data.color_hex:
             color_text = f" using the colour {data.color_name or data.color_hex} (hex {data.color_hex})"
+
+        # Per-finger overrides: only mention fingers that differ from the global look
+        per_finger_text = ""
+        if data.finger_customizations:
+            base_design = data.design_id
+            base_shape = data.shape_id
+            base_color = data.color_hex
+            lines: list[str] = []
+            label_for_finger = {
+                "l-thumb": "left thumb", "l-index": "left index",
+                "l-middle": "left middle", "l-ring": "left ring", "l-pinky": "left pinky",
+                "r-thumb": "right thumb", "r-index": "right index",
+                "r-middle": "right middle", "r-ring": "right ring", "r-pinky": "right pinky",
+            }
+            for fc in data.finger_customizations:
+                fid = fc.get("finger_id")
+                differs = (
+                    (fc.get("design_id") and fc["design_id"] != base_design)
+                    or (fc.get("shape_id") and fc["shape_id"] != base_shape)
+                    or (fc.get("color_hex") and fc["color_hex"] != base_color)
+                )
+                if not differs or fid not in label_for_finger:
+                    continue
+                fd = DESIGN_MAP.get(fc.get("design_id"))
+                fs = SHAPE_MAP.get(fc.get("shape_id"))
+                desc_parts = []
+                if fs:
+                    desc_parts.append(f"{fs['label'].lower()} shape")
+                if fd:
+                    desc_parts.append(f"{fd['label']} design")
+                if fc.get("color_name") or fc.get("color_hex"):
+                    desc_parts.append(f"colour {fc.get('color_name') or fc.get('color_hex')}")
+                if desc_parts:
+                    lines.append(f"- {label_for_finger[fid]}: {', '.join(desc_parts)}")
+            if lines:
+                per_finger_text = (
+                    " Apply these per-finger overrides on top of the base look:\n" + "\n".join(lines)
+                )
+
         prompt = (
             f"Edit this exact photo of a hand. Keep the hand, skin tone, lighting and background identical. "
             f"Only change the fingernails to show {shape_text} nails in {style_name} style ({style_hint}){color_text}. "
             f"Photorealistic, professional nail salon quality, sharp focus, natural shadows. "
             f"Same hand preserved, high quality. Do not change anything else about the image."
+            f"{per_finger_text}"
         )
         msg = UserMessage(text=prompt, file_contents=[ImageContent(raw_b64)])
         text, images = await asyncio.wait_for(chat.send_message_multimodal_response(msg), timeout=90)
