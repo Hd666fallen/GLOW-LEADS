@@ -645,7 +645,14 @@ function StepCustomize({
   onBack, onSkip, onGenerate,
 }) {
   const [hand, setHand] = useState("left");
+  const activeFingerRef = useRef("left-ring");
   const [activeFinger, setActiveFinger] = useState("left-ring");
+
+  const selectFinger = (fingerId) => {
+    activeFingerRef.current = fingerId;
+    setActiveFinger(fingerId);
+  };
+
   const [designCat, setDesignCat] = useState(designGroups[0]?.id);
 
   // BUG 1 — Per-finger state isolation. Each finger has its OWN object.
@@ -701,19 +708,18 @@ function StepCustomize({
   }, [fingerStates]);
 
   // BUG 1 — updateFinger writes ONE finger's ONE field. Other 9 fingers untouched.
-  const updateFinger = (fingerId, field, value) => {
-    if (!fingerId || !field) return;
+  const updateFinger = (field, value) => {
+    const fingerId = activeFingerRef.current;
     const valueCopy = value && typeof value === 'object'
       ? { ...value }
       : value;
-    setFingerStates((prev) => {
-      const next = { ...prev };
-      next[fingerId] = {
+    setFingerStates(prev => ({
+      ...prev,
+      [fingerId]: {
         ...prev[fingerId],
-        [field]: valueCopy,
-      };
-      return next;
-    });
+        [field]: valueCopy
+      }
+    }));
   };
 
   const applyToAll = () => {
@@ -749,7 +755,7 @@ function StepCustomize({
         {[{k:"left",label:"Left hand"},{k:"right",label:"Right hand"}].map((h) => (
           <button
             key={h.k}
-            onClick={() => { setHand(h.k); setActiveFinger(`${h.k}-${activeFinger.split("-")[1]}`); }}
+            onClick={() => { setHand(h.k); selectFinger(`${h.k}-${activeFinger.split("-")[1]}`); }}
             className={`flex-1 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition ${
               hand === h.k ? "bg-[#C2185B] text-white" : "bg-white text-[#C2185B] border border-[#C2185B]/30"
             }`}
@@ -769,7 +775,7 @@ function StepCustomize({
           return (
             <button
               key={fid}
-              onClick={() => setActiveFinger(fid)}
+              onClick={() => selectFinger(fid)}
               className="flex flex-col items-center group"
               data-testid={`finger-${fid}`}
             >
@@ -819,7 +825,7 @@ function StepCustomize({
               return (
                 <button
                   key={s.id}
-                  onClick={() => updateFinger(activeFinger, 'shape', s)}
+                  onClick={() => updateFinger('shape', s)}
                   className={`rounded-xl overflow-hidden bg-white border-2 transition text-left ${sel ? "border-[#C2185B]" : "border-transparent"}`}
                   data-testid={`finger-shape-${s.id}`}
                 >
@@ -854,7 +860,7 @@ function StepCustomize({
               return (
                 <button
                   key={d.id}
-                  onClick={() => updateFinger(activeFinger, 'design', d)}
+                  onClick={() => updateFinger('design', d)}
                   className={`rounded-xl overflow-hidden bg-white border-2 transition text-left ${sel ? "border-[#C2185B]" : "border-transparent"}`}
                   data-testid={`finger-design-${d.id}`}
                 >
@@ -882,7 +888,7 @@ function StepCustomize({
                     return (
                       <button
                         key={`${c.hex}-${i}`}
-                        onClick={() => updateFinger(activeFinger, 'color', c)}
+                        onClick={() => updateFinger('color', c)}
                         className={`w-7 h-7 rounded-full transition flex items-center justify-center ${
                           sel ? "ring-[3px] ring-[#FFD700] scale-110" : "ring-1 ring-black/10"
                         }`}
