@@ -647,81 +647,77 @@ function StepCustomize({
   onBack, onSkip, onGenerate,
 }) {
   const [hand, setHand] = useState("left");
-  const activeFingerRef = useRef("left-ring");
   const [activeFinger, setActiveFinger] = useState("left-ring");
+  const [designCat, setDesignCat] = useState(designGroups[0]?.id);
+  const activeFingerRef = useRef("left-ring");
+  const initDone = useRef(false);
 
-  const selectFinger = (fingerId) => {
-    activeFingerRef.current = fingerId;
-    setActiveFinger(fingerId);
+  useEffect(() => {
+    if (initDone.current) return;
+    if (!selectedShape && !selectedDesign && !selectedColor) return;
+    initDone.current = true;
+    const init = {};
+    ["left-thumb","left-index","left-middle","left-ring","left-pinky",
+     "right-thumb","right-index","right-middle","right-ring","right-pinky"
+    ].forEach(fid => {
+      init[fid] = {
+        shape: selectedShape ? { ...selectedShape } : null,
+        design: selectedDesign ? { ...selectedDesign } : null,
+        color: selectedColor ? { ...selectedColor } : null,
+      };
+    });
+    setFingerState(init);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const selectFinger = (fid) => {
+    activeFingerRef.current = fid;
+    setActiveFinger(fid);
   };
 
-  const [designCat, setDesignCat] = useState(designGroups[0]?.id);
-
-  // Pre-fill every finger ONCE with the previous step's selected shape/design/color
-  // into the PARENT fingerState. Each finger gets its OWN cloned object.
-  const initedRef = useRef(false);
-  useEffect(() => {
-    if (initedRef.current) return;
-    if (!selectedShape || !selectedDesign || !selectedColor) return;
-    initedRef.current = true;
-    setFingerState({
-      'left-thumb':   { shape: { ...selectedShape }, design: { ...selectedDesign }, color: { ...selectedColor } },
-      'left-index':   { shape: { ...selectedShape }, design: { ...selectedDesign }, color: { ...selectedColor } },
-      'left-middle':  { shape: { ...selectedShape }, design: { ...selectedDesign }, color: { ...selectedColor } },
-      'left-ring':    { shape: { ...selectedShape }, design: { ...selectedDesign }, color: { ...selectedColor } },
-      'left-pinky':   { shape: { ...selectedShape }, design: { ...selectedDesign }, color: { ...selectedColor } },
-      'right-thumb':  { shape: { ...selectedShape }, design: { ...selectedDesign }, color: { ...selectedColor } },
-      'right-index':  { shape: { ...selectedShape }, design: { ...selectedDesign }, color: { ...selectedColor } },
-      'right-middle': { shape: { ...selectedShape }, design: { ...selectedDesign }, color: { ...selectedColor } },
-      'right-ring':   { shape: { ...selectedShape }, design: { ...selectedDesign }, color: { ...selectedColor } },
-      'right-pinky':  { shape: { ...selectedShape }, design: { ...selectedDesign }, color: { ...selectedColor } },
-    });
-  }, [selectedShape, selectedDesign, selectedColor]);
-
-  // BUG 1 — updateFinger writes ONE finger's ONE field directly into the
-  // PARENT fingerState. There is no local state — no mirroring, no conflicts.
   const updateFinger = (field, value) => {
-    const valueCopy = value && typeof value === 'object' ? { ...value } : value;
-    setFingerState(prev => ({
-      ...prev,
-      [activeFingerRef.current]: {
-        ...prev[activeFingerRef.current],
-        [field]: valueCopy
-      }
-    }));
+    const fid = activeFingerRef.current;
+    const copy = value && typeof value === "object" ? { ...value } : value;
+    setFingerState(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        [fid]: { ...prev[fid], [field]: copy },
+      };
+    });
   };
 
   const applyToAll = () => {
-    const src = fingerState?.[activeFinger];
+    const src = fingerState?.[activeFingerRef.current];
     if (!src) return;
-    setFingerState({
-      'left-thumb':   { shape: src.shape ? { ...src.shape } : null, design: src.design ? { ...src.design } : null, color: src.color ? { ...src.color } : null },
-      'left-index':   { shape: src.shape ? { ...src.shape } : null, design: src.design ? { ...src.design } : null, color: src.color ? { ...src.color } : null },
-      'left-middle':  { shape: src.shape ? { ...src.shape } : null, design: src.design ? { ...src.design } : null, color: src.color ? { ...src.color } : null },
-      'left-ring':    { shape: src.shape ? { ...src.shape } : null, design: src.design ? { ...src.design } : null, color: src.color ? { ...src.color } : null },
-      'left-pinky':   { shape: src.shape ? { ...src.shape } : null, design: src.design ? { ...src.design } : null, color: src.color ? { ...src.color } : null },
-      'right-thumb':  { shape: src.shape ? { ...src.shape } : null, design: src.design ? { ...src.design } : null, color: src.color ? { ...src.color } : null },
-      'right-index':  { shape: src.shape ? { ...src.shape } : null, design: src.design ? { ...src.design } : null, color: src.color ? { ...src.color } : null },
-      'right-middle': { shape: src.shape ? { ...src.shape } : null, design: src.design ? { ...src.design } : null, color: src.color ? { ...src.color } : null },
-      'right-ring':   { shape: src.shape ? { ...src.shape } : null, design: src.design ? { ...src.design } : null, color: src.color ? { ...src.color } : null },
-      'right-pinky':  { shape: src.shape ? { ...src.shape } : null, design: src.design ? { ...src.design } : null, color: src.color ? { ...src.color } : null },
+    const updated = {};
+    ["left-thumb","left-index","left-middle","left-ring","left-pinky",
+     "right-thumb","right-index","right-middle","right-ring","right-pinky"
+    ].forEach(fid => {
+      updated[fid] = {
+        shape: src.shape ? { ...src.shape } : null,
+        design: src.design ? { ...src.design } : null,
+        color: src.color ? { ...src.color } : null,
+      };
     });
+    setFingerState(updated);
     toast.success("Applied to all 10 fingers");
   };
 
-  const currentFingers = fingerIds.filter((f) => f.startsWith(`${hand}-`));
+  const currentFingers = fingerIds.filter(f => f.startsWith(`${hand}-`));
   const editing = fingerState?.[activeFinger];
-  const editingFingerLabel = `${activeFinger.startsWith("left-") ? "Left" : "Right"} ${FINGER_LABELS[activeFinger.split("-")[1]]}`;
+  const editingLabel = `${activeFinger.startsWith("left") ? "Left" : "Right"} ${FINGER_LABELS[activeFinger.split("-")[1]]}`;
 
   return (
     <section className="slide-up" style={{ paddingBottom: 140 }} data-testid="step-customize">
-      <button onClick={onBack} className="mb-3 text-sm opacity-70 inline-flex items-center gap-2"><ArrowLeft className="w-4 h-4" /> Back</button>
+      <button onClick={onBack} className="mb-3 text-sm opacity-70 inline-flex items-center gap-2">
+        <ArrowLeft className="w-4 h-4" /> Back
+      </button>
       <h2 className="funnel-headline text-3xl md:text-4xl font-bold mb-1">Make every finger yours 💅</h2>
-      <p className="text-sm opacity-70 mb-5">Tap any finger to customize it individually — or skip to keep the same look</p>
+      <p className="text-sm opacity-70 mb-5">Tap a finger to customize it — or skip to keep the same look</p>
 
-      {/* Hand toggle */}
       <div className="flex gap-2 mb-4">
-        {[{k:"left",label:"Left hand"},{k:"right",label:"Right hand"}].map((h) => (
+        {[{ k: "left", label: "Left hand" }, { k: "right", label: "Right hand" }].map(h => (
           <button
             key={h.k}
             onClick={() => { setHand(h.k); selectFinger(`${h.k}-${activeFinger.split("-")[1]}`); }}
@@ -729,75 +725,47 @@ function StepCustomize({
               hand === h.k ? "bg-[#C2185B] text-white" : "bg-white text-[#C2185B] border border-[#C2185B]/30"
             }`}
             data-testid={`hand-toggle-${h.k}`}
-          >
-            {h.label}
-          </button>
+          >{h.label}</button>
         ))}
       </div>
 
-      {/* STEP 3: Clean nail-slot selector — colour only, no photos */}
       <div className="grid grid-cols-5 gap-3 mb-3 justify-items-center" data-testid="finger-preview-row">
-        {currentFingers.map((fid) => {
+        {currentFingers.map(fid => {
           const fs = fingerState?.[fid];
           const fname = FINGER_LABELS[fid.split("-")[1]];
           const isActive = fid === activeFinger;
           return (
-            <button
-              key={fid}
-              onClick={() => selectFinger(fid)}
-              className="flex flex-col items-center group"
-              data-testid={`finger-${fid}`}
-            >
-              <div
-                style={{
-                  width: 40,
-                  height: 60,
-                  borderRadius: "20px 20px 6px 6px",
-                  background: fs?.color?.hex || "#FFEFD5",
-                  border: isActive ? "2px solid #C2185B" : "1px solid rgba(0,0,0,0.08)",
-                  boxShadow: isActive ? "0 0 0 3px rgba(255,215,0,0.5)" : "none",
-                  transform: isActive ? "translateY(-4px)" : "translateY(0)",
-                  transition: "all 0.2s ease",
-                }}
-                data-testid={`finger-preview-${fid}`}
-                data-color={fs?.color?.hex || ""}
-              />
-              <span
-                className={`mt-2 ${isActive ? "text-[#C2185B] font-semibold" : "text-gray-500"}`}
-                style={{ fontSize: 11 }}
-              >
-                {fname}
-              </span>
+            <button key={fid} onClick={() => selectFinger(fid)} className="flex flex-col items-center group" data-testid={`finger-${fid}`}>
+              <div style={{
+                width: 40, height: 60, borderRadius: "20px 20px 6px 6px",
+                background: fs?.color?.hex || "#FFEFD5",
+                border: isActive ? "2px solid #C2185B" : "1px solid rgba(0,0,0,0.08)",
+                boxShadow: isActive ? "0 0 0 3px rgba(255,215,0,0.5)" : "none",
+                transform: isActive ? "translateY(-4px)" : "translateY(0)",
+                transition: "all 0.2s ease",
+              }} data-testid={`finger-preview-${fid}`} data-color={fs?.color?.hex || ""} />
+              <span className={`mt-2 ${isActive ? "text-[#C2185B] font-semibold" : "text-gray-500"}`} style={{ fontSize: 11 }}>{fname}</span>
             </button>
           );
         })}
       </div>
 
-      <button
-        onClick={applyToAll}
-        className="w-full text-xs text-[#C2185B] underline font-semibold mb-6"
-        data-testid="apply-to-all-btn"
-      >
+      <button onClick={applyToAll} className="w-full text-xs text-[#C2185B] underline font-semibold mb-6" data-testid="apply-to-all-btn">
         Apply to all fingers
       </button>
 
-      {/* Editor panel */}
       <div className="bg-white rounded-2xl shadow-sm border border-pink-100 p-4 space-y-5" data-testid="finger-editor">
-        <p className="text-xs uppercase tracking-[0.2em] text-[#C2185B] font-semibold">Editing: {editingFingerLabel}</p>
+        <p className="text-xs uppercase tracking-[0.2em] text-[#C2185B] font-semibold">Editing: {editingLabel}</p>
 
-        {/* Shape mini-grid */}
         <div>
           <p className="text-xs font-semibold text-gray-700 mb-2">Shape</p>
           <div className="grid grid-cols-3 gap-2">
-            {shapes.map((s) => {
+            {shapes.map(s => {
               const sel = editing?.shape?.id === s.id;
               return (
-                <button
-                  key={s.id}
-                  onClick={() => updateFinger('shape', s)}
+                <button key={s.id} onClick={() => updateFinger("shape", s)}
                   className={`rounded-xl overflow-hidden bg-white border-2 transition text-left ${sel ? "border-[#C2185B]" : "border-transparent"}`}
-                  data-testid={`finger-shape-${s.id}`}
-                >
+                  data-testid={`finger-shape-${s.id}`}>
                   <img src={absoluteImg(s.image)} alt={s.label} className="w-full h-[65px] object-cover" loading="lazy" />
                   <p className="text-[10px] font-semibold px-1.5 py-1 truncate">{s.label}</p>
                 </button>
@@ -806,33 +774,23 @@ function StepCustomize({
           </div>
         </div>
 
-        {/* Design mini-grid */}
         <div>
           <p className="text-xs font-semibold text-gray-700 mb-2">Design</p>
           <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1.5 mb-2">
-            {designGroups.map((g) => (
-              <button
-                key={g.id}
-                onClick={() => setDesignCat(g.id)}
+            {designGroups.map(g => (
+              <button key={g.id} onClick={() => setDesignCat(g.id)}
                 className={`shrink-0 text-[10px] px-2.5 py-1 rounded-full font-semibold uppercase tracking-wider border ${
                   designCat === g.id ? "bg-[#C2185B] text-white border-[#C2185B]" : "bg-white text-[#C2185B] border-[#C2185B]/30"
-                }`}
-                data-testid={`finger-design-cat-${g.id}`}
-              >
-                {g.label}
-              </button>
+                }`} data-testid={`finger-design-cat-${g.id}`}>{g.label}</button>
             ))}
           </div>
           <div className="grid grid-cols-3 gap-2 max-h-[260px] overflow-y-auto pr-1">
-            {(designGroups.find((g) => g.id === designCat)?.designs || []).map((d) => {
+            {(designGroups.find(g => g.id === designCat)?.designs || []).map(d => {
               const sel = editing?.design?.id === d.id;
               return (
-                <button
-                  key={d.id}
-                  onClick={() => updateFinger('design', d)}
+                <button key={d.id} onClick={() => updateFinger("design", d)}
                   className={`rounded-xl overflow-hidden bg-white border-2 transition text-left ${sel ? "border-[#C2185B]" : "border-transparent"}`}
-                  data-testid={`finger-design-${d.id}`}
-                >
+                  data-testid={`finger-design-${d.id}`}>
                   <img src={absoluteImg(d.image)} alt={d.label} className="w-full h-[55px] object-cover" loading="lazy" />
                   <div className="px-1.5 py-1">
                     <p className="text-[10px] font-semibold truncate leading-tight">{d.label}</p>
@@ -844,27 +802,23 @@ function StepCustomize({
           </div>
         </div>
 
-        {/* Color swatches */}
         <div>
           <p className="text-xs font-semibold text-gray-700 mb-2">Colour</p>
           <div className="space-y-3 max-h-[200px] overflow-y-auto pr-1">
-            {colorGroups.map((g) => (
+            {colorGroups.map(g => (
               <div key={g.id}>
                 <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-1">{g.label}</p>
                 <div className="flex gap-1.5 flex-wrap">
                   {g.colors.map((c, i) => {
                     const sel = editing?.color?.hex === c.hex && editing?.color?.name === c.name;
                     return (
-                      <button
-                        key={`${c.hex}-${i}`}
-                        onClick={() => updateFinger('color', c)}
+                      <button key={`${c.hex}-${i}`} onClick={() => updateFinger("color", c)}
                         className={`w-7 h-7 rounded-full transition flex items-center justify-center ${
                           sel ? "ring-[3px] ring-[#FFD700] scale-110" : "ring-1 ring-black/10"
                         }`}
                         style={{ background: c.hex }}
                         title={`${c.name} — ${c.brand}`}
-                        data-testid={`finger-color-${c.hex.replace("#","")}`}
-                      >
+                        data-testid={`finger-color-${c.hex.replace("#", "")}`}>
                         {sel && <Check className="w-3 h-3 text-white drop-shadow" strokeWidth={3} />}
                       </button>
                     );
@@ -876,42 +830,13 @@ function StepCustomize({
         </div>
       </div>
 
-      {/* STEP 5: Floating Generate bar */}
-      <div
-        style={{
-          position: "fixed",
-          bottom: 0,
-          left: 0,
-          right: 0,
-          zIndex: 999,
-          background: "white",
-          padding: "16px 24px",
-          borderTop: "1px solid #fce4ec",
-        }}
-        data-testid="customize-bottom-bar"
-      >
-        <button
-          onClick={onGenerate}
-          style={{
-            width: "100%",
-            background: "#C2185B",
-            color: "white",
-            borderRadius: 9999,
-            padding: 16,
-            fontSize: 16,
-            fontWeight: 600,
-          }}
-          className="transition active:scale-[0.98]"
-          data-testid="customize-generate-btn"
-        >
+      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 999, background: "white", padding: "16px 24px", borderTop: "1px solid #fce4ec" }} data-testid="customize-bottom-bar">
+        <button onClick={onGenerate}
+          style={{ width: "100%", background: "#C2185B", color: "white", borderRadius: 9999, padding: 16, fontSize: 16, fontWeight: 600 }}
+          className="transition active:scale-[0.98]" data-testid="customize-generate-btn">
           Generate my look ✨
         </button>
-        <button
-          onClick={onSkip}
-          className="block mx-auto mt-2 text-gray-500 underline"
-          style={{ fontSize: 13 }}
-          data-testid="customize-skip-btn"
-        >
+        <button onClick={onSkip} className="block mx-auto mt-2 text-gray-500 underline" style={{ fontSize: 13 }} data-testid="customize-skip-btn">
           Skip — same look for all
         </button>
       </div>
