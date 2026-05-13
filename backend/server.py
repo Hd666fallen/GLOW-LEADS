@@ -132,6 +132,10 @@ class TryOnIn(BaseModel):
     color_hex: Optional[str] = None
     color_name: Optional[str] = None
     finger_customizations: Optional[list[dict]] = None
+    # New per-hand rebuild
+    hand: Optional[str] = None  # 'left' or 'right'
+    finger_coords: Optional[dict] = None  # {'thumb': {'x': 0.32, 'y': 0.45}, ...}
+    inspo_b64: Optional[str] = None
 
 
 class LeadIn(BaseModel):
@@ -471,8 +475,49 @@ async def ai_try_on(data: TryOnIn):
         if data.color_hex:
             color_text = f" using the colour {data.color_name or data.color_hex} (hex {data.color_hex})"
 
-        # Per-finger overrides: split by hand so the AI never mirrors changes
-        per_finger_text = ""
+        prompt = (
+            f"Edit this exact photo of a hand. Keep the hand, skin tone, lighting and background identical. "
+            f"Only change the fingernails to show {shape_text} nails in {style_name} style ({style_hint}){color_text}. "
+            f"Photorealistic, professional nail salon quality, sharp focus, natural shadows. "
+            f"Same hand preserved, high quality. Do not change anything else about the image."
+        )
+
+        # Per-hand context (new flow) — this photo shows ONLY one hand
+        if data.hand in ("left", "right"):
+            other = "right" if data.hand == "left" else "left"
+            prompt += (
+                f"\n\nThis photo shows ONLY the {data.hand.upper()} hand of the customer "
+                f"(palm facing DOWN, fingers spread). There is no {other} hand in this image. "
+                f"Apply the requested changes ONLY to the nails visible in this photo. "
+                f"Do NOT invent or hallucinate any other hand."
+            )
+
+        # Explicit finger coordinates supplied by the customer tapping each fingertip.
+        if data.finger_coords:
+            coord_lines = []
+            for finger in ("thumb", "index", "middle", "ring", "pinky"):
+                c = data.finger_coords.get(finger) if isinstance(data.finger_coords, dict) else None
+                if c and "x" in c and "y" in c:
+                    coord_lines.append(
+                        f"- {finger}: x={float(c['x']):.3f}, y={float(c['y']):.3f} "
+                        f"(values are 0..1 of the photo width/height)"
+                    )
+            if coord_lines:
+                prompt += (
+                    "\n\nThe customer has tapped the exact pixel position of each fingertip in this photo. "
+                    "These are the ONLY nail positions you should edit:\n" + "\n".join(coord_lines)
+                )
+
+        # Inspo image (second file_content) — instruct AI to copy from it.
+        if data.inspo_b64:
+            prompt += (
+                "\n\nA SECOND reference image (the inspo photo) is attached. "
+                "Extract the nail design, colours, finish and shape from the inspo image and apply them "
+                "onto the exact finger nail positions in the HAND photo. Match the inspo as closely as possible. "
+                "Do NOT change anything else in the hand photo."
+            )
+
+        # Per-finger overrides — only fingers belonging to this hand
         if data.finger_customizations:
             base_design = data.design_id
             base_shape = data.shape_id
@@ -483,20 +528,18 @@ async def ai_try_on(data: TryOnIn):
                 "right-thumb": "right thumb", "right-index": "right index",
                 "right-middle": "right middle", "right-ring": "right ring", "right-pinky": "right pinky",
             }
-            left_lines: list[str] = []
-            right_lines: list[str] = []
+            lines: list[str] = []
             for fc in data.finger_customizations:
                 fid = fc.get("finger_id")
-                hand = fc.get("hand") or (
-                    "left" if (fid or "").startswith("left") else
-                    "right" if (fid or "").startswith("right") else None
-                )
+                # If a hand is set, filter to that hand only
+                if data.hand and not (fid or "").startswith(data.hand):
+                    continue
                 differs = (
                     (fc.get("design_id") and fc["design_id"] != base_design)
                     or (fc.get("shape_id") and fc["shape_id"] != base_shape)
                     or (fc.get("color_hex") and fc["color_hex"] != base_color)
                 )
-                if not differs or fid not in label_for_finger or hand not in ("left", "right"):
+                if not differs or fid not in label_for_finger:
                     continue
                 fd = DESIGN_MAP.get(fc.get("design_id"))
                 fs = SHAPE_MAP.get(fc.get("shape_id"))
@@ -507,39 +550,26 @@ async def ai_try_on(data: TryOnIn):
                     desc_parts.append(f"{fd['label']} design")
                 if fc.get("color_name") or fc.get("color_hex"):
                     desc_parts.append(f"colour {fc.get('color_name') or fc.get('color_hex')}")
-                if not desc_parts:
-                    continue
-                line = f"- {label_for_finger[fid]}: {', '.join(desc_parts)}"
-                if hand == "left":
-                    left_lines.append(line)
-                else:
-                    right_lines.append(line)
-            if left_lines or right_lines:
-                per_finger_text = (
+                if desc_parts:
+                    lines.append(f"- {label_for_finger[fid]}: {', '.join(desc_parts)}")
+            if lines:
+                prompt += (
                     "\n\nPer-finger overrides on top of the base look. "
-                    "Treat the LEFT hand and the RIGHT hand as COMPLETELY INDEPENDENT. "
-                    "Do NOT mirror changes from the left hand onto the right hand. "
-                    "Do NOT mirror changes from the right hand onto the left hand. "
-                    "Each finger listed below applies ONLY to that exact finger on that exact hand:\n"
-                    f"Left hand fingers:\n" + ("\n".join(left_lines) if left_lines else "- (no overrides — use the base look)") + "\n"
-                    f"Right hand fingers:\n" + ("\n".join(right_lines) if right_lines else "- (no overrides — use the base look)")
+                    "Each finger listed below applies ONLY to that exact finger at the EXACT coordinate provided:\n"
+                    + "\n".join(lines)
                 )
 
-        prompt = (
-            f"Edit this exact photo of a hand. Keep the hand, skin tone, lighting and background identical. "
-            f"Only change the fingernails to show {shape_text} nails in {style_name} style ({style_hint}){color_text}. "
-            f"Photorealistic, professional nail salon quality, sharp focus, natural shadows. "
-            f"Same hand preserved, high quality. Do not change anything else about the image.\n\n"
-            f"The uploaded photo shows BOTH hands palms facing DOWN with fingers spread.\n"
-            f"LEFT hand is on the LEFT side of photo: finger order from left to right is: "
-            f"pinky, ring, middle, index, thumb.\n"
-            f"RIGHT hand is on the RIGHT side of photo: finger order from left to right is: "
-            f"thumb, index, middle, ring, pinky.\n"
-            f"Apply each finger nail change to the EXACT finger at that position in the photo. "
-            f"Do NOT copy changes from one finger to any other finger."
-            f"{per_finger_text}"
+        prompt += (
+            "\n\nABSOLUTE RULE: Do NOT copy a design from one finger to any other finger. "
+            "Each finger nail is edited independently."
         )
-        msg = UserMessage(text=prompt, file_contents=[ImageContent(raw_b64)])
+
+        # Build the file_contents — hand image plus optional inspo
+        file_contents = [ImageContent(raw_b64)]
+        if data.inspo_b64:
+            inspo_raw = _decode_image(data.inspo_b64)
+            file_contents.append(ImageContent(inspo_raw))
+        msg = UserMessage(text=prompt, file_contents=file_contents)
         text, images = await asyncio.wait_for(chat.send_message_multimodal_response(msg), timeout=90)
         if images:
             img = images[0]

@@ -71,7 +71,13 @@ Full-stack AI-powered lead generation SaaS platform for nail technicians with 3 
   - Generate now **actually sends** `finger_customizations` to `/api/ai/try-on` (and to `/api/leads`), and the backend prompt for Gemini lists per-finger overrides (only fingers that differ from base). Skip path passes `null` so the AI gets the unified look.
   - Result screen shows a **"Custom mixed look 💅"** badge when any finger differs from the base.
   - Floating bottom bar (`position: fixed`, white + `backdrop-filter: blur(12px)`, `padding: 16px 24px`, `Generate my look ✨` full-width pink, "Skip — same look for all" link below) always visible; section has `padding-bottom: 140px`.
-- **Iteration 7 (Feb 2026) — Per-finger customizer rebuild:**
+- **Iteration 8 (Feb 2026) — Two-hand rebuild of the customer funnel:**
+  - Replaced the single-photo upload with **two separate hand uploads (LEFT then RIGHT)** + tap-to-mark fingertip coordinates (5 dots per hand stored as 0..1 ratios).
+  - New **Inspo Y/N branch**: "Yes" lets the customer upload any Pinterest/Instagram photo and skips straight to generate; "No" proceeds to the existing Shape → Design → Colour → Per-finger customizer.
+  - **Generate now calls `/api/ai/try-on` twice in parallel — once per hand** — with that hand's photo, its 5 coords, and its hand-specific customizations or the inspo image. This is the structural fix for the long-standing "mirroring" bug: each hand is processed in total isolation.
+  - **Result screen** shows both hand previews side-by-side with LEFT / RIGHT labels (booking flow untouched).
+  - **Backend** `TryOnIn` extended with `hand`, `finger_coords`, `inspo_b64`. Prompt now: states the photo shows ONLY one hand, lists exact tap coords, attaches the inspo as a second `ImageContent`, ends with "ABSOLUTE RULE: Do NOT copy a design from one finger to any other finger."
+  - Step indicator switched from numbered "Step X of 6" to friendly stage labels ("📸 Left hand", "💅 Inspo?", "✨ Result", etc.).
   - **Removed** the SVG illustrated hand and the `<NailPreview/>` design-thumbnail component (they confused users).
   - **Single-finger isolation guarantee**: editor uses `setFingerState(prev => ({ ...prev, [activeFinger]: { ...prev[activeFinger], ...patch } }))`. Verified in-browser: changing L-Ring colour leaves all 9 other fingers unchanged.
   - **New top selector**: Left/Right hand toggle + 5 clean coloured nail-slots (40×60, `border-radius: 20px 20px 6px 6px`, **no photos**) with the active slot getting a pink border + gold glow + 4px lift. Label 11px below each slot.

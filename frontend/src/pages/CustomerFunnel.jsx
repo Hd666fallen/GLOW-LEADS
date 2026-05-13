@@ -20,11 +20,21 @@ const TIMES = ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "1
 
 export default function CustomerFunnel() {
   const { slug } = useParams();
-  const [step, setStep] = useState(1);
+  // New flow phases: 'upload-left' | 'upload-right' | 'inspo' | 'inspo-upload' | 'shape' | 'design' | 'color' | 'customize' | 'result'
+  const [step, setStep] = useState('upload-left');
   const [tech, setTech] = useState(null);
   const [config, setConfig] = useState(null);
 
-  // Persistent session state — never re-uploaded
+  // New flow state — two hands + per-finger tap coords + inspo
+  const [leftHandUrl, setLeftHandUrl] = useState(null);
+  const [rightHandUrl, setRightHandUrl] = useState(null);
+  const [fingerCoords, setFingerCoords] = useState({}); // {fid: {x, y}} where x,y in 0..1
+  const [hasInspo, setHasInspo] = useState(null); // null | true | false
+  const [inspoUrl, setInspoUrl] = useState(null);
+  const [leftPreview, setLeftPreview] = useState(null);
+  const [rightPreview, setRightPreview] = useState(null);
+
+  // Legacy single-image kept ONLY for sheet-based change-pickers fallback
   const [imageDataUrl, setImageDataUrl] = useState(null);
   const [detection, setDetection] = useState(null);
   const [detecting, setDetecting] = useState(false);
@@ -33,7 +43,7 @@ export default function CustomerFunnel() {
   const [design, setDesign] = useState(null);
   const [color, setColor] = useState(null);
 
-  // Per-finger customizer state (Step 5)
+  // Per-finger customizer state (10 fingers)
   const FINGER_IDS = ["left-thumb","left-index","left-middle","left-ring","left-pinky","right-thumb","right-index","right-middle","right-ring","right-pinky"];
   const [fingerState, setFingerState] = useState(null);
   const [fingerInited, setFingerInited] = useState(false);
@@ -43,8 +53,6 @@ export default function CustomerFunnel() {
     if (!force && fingerInited) return;
     const next = {};
     for (const fid of FINGER_IDS) {
-      // Each finger gets its OWN fresh outer object AND its own clones of
-      // shape/design/color — never shared by reference with any other finger.
       next[fid] = {
         shape: { ...shape },
         design: { ...design },
@@ -74,71 +82,91 @@ export default function CustomerFunnel() {
     api.get(`/funnel/config?tech_slug=${encodeURIComponent(slug)}`).then((r) => setConfig(r.data));
   }, [slug]);
 
-  const generate = async (overrides = {}) => {
+  // Build per-hand try-on payload and call /ai/try-on for each hand in parallel.
+  const generate = async (mode = 'custom', overrides = {}) => {
+    if (!leftHandUrl || !rightHandUrl) {
+      toast.error("Upload both hands first");
+      setStep('upload-left');
+      return;
+    }
     const useShape = overrides.shape || shape;
     const useDesign = overrides.design || design;
     const useColor = overrides.color || color;
-    if (!useDesign) { toast.error("Pick a design first"); return; }
     setGenerating(true);
     setProgress(0);
-    setStep(6);
+    setStep('result');
     const messages = [
-      "Analyzing your hand...",
-      `Applying ${useDesign.label}...`,
-      `Adding ${useColor?.name || "your colour"}...`,
+      "Analyzing your hands...",
+      `Applying ${useDesign?.label || "your look"}...`,
+      "Painting nails on both hands...",
       "Almost ready...",
     ];
     let mIdx = 0;
     setProgressMsg(messages[0]);
     const iv = setInterval(() => {
-      setProgress((p) => Math.min(p + 4, 95));
+      setProgress((p) => Math.min(p + 3, 95));
       mIdx = Math.min(mIdx + 1, messages.length - 1);
       setProgressMsg(messages[mIdx]);
     }, 800);
-    // Per-finger customizations: included unless skipFingers=true OR overrides.fingerCustomizations === null
-    const includeFingers = !overrides.skipFingers && overrides.fingerCustomizations !== null;
-    const fingerCustomizations = includeFingers
-      ? (overrides.fingerCustomizations
-          || (fingerInited && fingerState
-                ? Object.entries(fingerState).map(([fid, fs]) => ({
-                    finger_id: fid,
-                    hand: fid.startsWith('left') ? 'left' : 'right',
-                    finger: fid.split('-')[1],
-                    shape_id: fs.shape?.id,
-                    design_id: fs.design?.id,
-                    color_hex: fs.color?.hex,
-                    color_name: fs.color?.name,
-                  }))
-                : null))
-      : null;
-    try {
-      const r = await api.post("/ai/try-on", {
-        image_base64: imageDataUrl,
+
+    const buildPayload = (hand) => {
+      const handImg = hand === 'left' ? leftHandUrl : rightHandUrl;
+      const coords = {};
+      for (const f of ['thumb','index','middle','ring','pinky']) {
+        const c = fingerCoords[`${hand}-${f}`];
+        if (c) coords[f] = { x: c.x, y: c.y };
+      }
+      let customizations = null;
+      if (mode === 'custom' && fingerInited && fingerState) {
+        customizations = Object.entries(fingerState)
+          .filter(([fid]) => fid.startsWith(hand))
+          .map(([fid, fs]) => ({
+            finger_id: fid,
+            hand,
+            finger: fid.split('-')[1],
+            shape_id: fs.shape?.id,
+            design_id: fs.design?.id,
+            color_hex: fs.color?.hex,
+            color_name: fs.color?.name,
+          }));
+      }
+      return {
+        image_base64: handImg,
         tech_slug: slug,
-        design_id: useDesign.id,
+        hand,
+        finger_coords: coords,
+        inspo_b64: mode === 'inspo' ? inspoUrl : null,
+        design_id: useDesign?.id,
         shape_id: useShape?.id,
         color_hex: useColor?.hex,
         color_name: useColor?.name,
-        finger_customizations: fingerCustomizations,
-      });
-      setPreviewUrl(r.data.preview);
+        finger_customizations: customizations,
+      };
+    };
+
+    try {
+      const [leftR, rightR] = await Promise.all([
+        api.post("/ai/try-on", buildPayload('left')),
+        api.post("/ai/try-on", buildPayload('right')),
+      ]);
+      setLeftPreview(leftR.data.preview);
+      setRightPreview(rightR.data.preview);
+      setPreviewUrl(leftR.data.preview);
       if (!leadId) {
         const lead = await api.post("/leads", {
           tech_slug: slug,
           name: "Guest",
           phone: "",
-          design_id: useDesign.id,
+          design_id: useDesign?.id,
           shape_id: useShape?.id,
-          preview_image: r.data.preview,
+          preview_image: leftR.data.preview,
           color_hex: useColor?.hex,
           color_name: useColor?.name,
-          finger_customizations: fingerCustomizations,
         });
         setLeadId(lead.data.id);
       }
     } catch {
-      toast.error("AI hiccup — showing reference image");
-      setPreviewUrl(useDesign.image);
+      toast.error("AI hiccup — please try again");
     } finally {
       clearInterval(iv);
       setProgress(100);
@@ -165,6 +193,18 @@ export default function CustomerFunnel() {
     return <div className="funnel-theme min-h-screen flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-[#C2185B]" /></div>;
   }
 
+  const STAGE_LABEL = {
+    'upload-left': '📸 Left hand',
+    'upload-right': '📸 Right hand',
+    'inspo': '💅 Inspo?',
+    'inspo-upload': '📸 Inspo',
+    'shape': '✋ Shape',
+    'design': '💅 Design',
+    'color': '🎨 Colour',
+    'customize': '✋✋ Fingers',
+    'result': '✨ Result',
+  };
+
   return (
     <div className="funnel-theme" data-testid="customer-funnel">
       <header className="max-w-6xl mx-auto px-5 py-5 flex items-center justify-between">
@@ -177,60 +217,85 @@ export default function CustomerFunnel() {
           </span>
         </Link>
         <div className="text-xs px-3 py-1.5 rounded-full bg-white/70 text-[#C2185B] font-semibold border border-[#C2185B]/20" data-testid="funnel-step-indicator">
-          Step {step} of 6
+          {STAGE_LABEL[step] || step}
         </div>
       </header>
 
-      {/* Selection chips bar */}
-      {(shape || design || color) && step > 1 && (
-        <div className="max-w-6xl mx-auto px-5 mb-3 flex flex-wrap gap-2 text-xs">
-          {shape && <Chip icon="✋" label={shape.label} onClear={() => setShape(null)} />}
-          {design && <Chip icon="💅" label={design.label} onClear={() => setDesign(null)} />}
-          {color && <Chip icon={<span className="w-3 h-3 rounded-full inline-block" style={{ background: color.hex }} />} label={color.name} onClear={() => setColor(null)} />}
-        </div>
-      )}
-
       <main className="max-w-6xl mx-auto px-5 pb-32">
-        {step === 1 && <StepUpload
-          tech={tech}
-          imageDataUrl={imageDataUrl}
-          detecting={detecting}
-          detection={detection}
+        {step === 'upload-left' && <StepUploadHand
+          hand="left"
+          handImage={leftHandUrl}
+          fingerCoords={fingerCoords}
+          setFingerCoords={setFingerCoords}
           onUpload={async (file) => {
             const dataUrl = await fileToBase64(file);
+            setLeftHandUrl(dataUrl);
             setImageDataUrl(dataUrl);
-            setDetecting(true);
-            try {
-              const r = await api.post("/ai/detect-shape", { image_base64: dataUrl });
-              setDetection(r.data);
-              if (r.data.shape_id && config) {
-                const matched = config.shapes.find((s) => s.id === r.data.shape_id);
-                if (matched) setShape(matched);
-              }
-            } catch {} finally { setDetecting(false); }
-            setTimeout(() => setStep(2), 1800);
           }}
+          onReset={() => {
+            setLeftHandUrl(null);
+            setFingerCoords((prev) => {
+              const next = { ...prev };
+              for (const f of ['thumb','index','middle','ring','pinky']) delete next[`left-${f}`];
+              return next;
+            });
+          }}
+          onDone={() => setStep('upload-right')}
         />}
-        {step === 2 && <StepShape
+        {step === 'upload-right' && <StepUploadHand
+          hand="right"
+          handImage={rightHandUrl}
+          fingerCoords={fingerCoords}
+          setFingerCoords={setFingerCoords}
+          onUpload={async (file) => {
+            const dataUrl = await fileToBase64(file);
+            setRightHandUrl(dataUrl);
+          }}
+          onReset={() => {
+            setRightHandUrl(null);
+            setFingerCoords((prev) => {
+              const next = { ...prev };
+              for (const f of ['thumb','index','middle','ring','pinky']) delete next[`right-${f}`];
+              return next;
+            });
+          }}
+          onBack={() => setStep('upload-left')}
+          onDone={() => setStep('inspo')}
+        />}
+        {step === 'inspo' && <StepInspoChoice
+          onBack={() => setStep('upload-right')}
+          onYes={() => { setHasInspo(true); setStep('inspo-upload'); }}
+          onNo={() => { setHasInspo(false); setStep('shape'); }}
+        />}
+        {step === 'inspo-upload' && <StepInspoUpload
+          inspoUrl={inspoUrl}
+          onUpload={async (file) => {
+            const url = await fileToBase64(file);
+            setInspoUrl(url);
+          }}
+          onBack={() => setStep('inspo')}
+          onGenerate={() => generate('inspo')}
+        />}
+        {step === 'shape' && <StepShape
           shapes={config.shapes}
           detected={detection?.shape_id}
           selected={shape?.id}
-          onPick={(s) => { setShape(s); setStep(3); }}
+          onPick={(s) => { setShape(s); setStep('design'); }}
         />}
-        {step === 3 && <StepDesign
+        {step === 'design' && <StepDesign
           groups={config.design_groups}
           selected={design?.id}
-          onPick={(d) => { setDesign(d); setStep(4); }}
-          onBack={() => setStep(2)}
+          onPick={(d) => { setDesign(d); setStep('color'); }}
+          onBack={() => setStep('shape')}
         />}
-        {step === 4 && <StepColor
+        {step === 'color' && <StepColor
           groups={config.color_groups}
           selected={color}
           onSelect={setColor}
-          onBack={() => setStep(3)}
-          onApply={() => { initFingerStateIfNeeded(true); setStep(5); }}
+          onBack={() => setStep('design')}
+          onApply={() => { initFingerStateIfNeeded(true); setStep('customize'); }}
         />}
-        {step === 5 && <StepCustomize
+        {step === 'customize' && <StepCustomize
           shapes={config.shapes}
           designGroups={config.design_groups}
           colorGroups={config.color_groups}
@@ -240,14 +305,16 @@ export default function CustomerFunnel() {
           selectedShape={shape}
           selectedDesign={design}
           selectedColor={color}
-          onBack={() => setStep(4)}
-          onSkip={() => generate({ skipFingers: true })}
-          onGenerate={() => generate()}
+          onBack={() => setStep('color')}
+          onSkip={() => generate('custom')}
+          onGenerate={() => generate('custom')}
         />}
-        {step === 6 && <StepResult
+        {step === 'result' && <StepResult
           tech={tech}
           imageDataUrl={imageDataUrl}
           previewUrl={previewUrl}
+          leftPreview={leftPreview}
+          rightPreview={rightPreview}
           generating={generating}
           progress={progress}
           progressMsg={progressMsg}
@@ -256,10 +323,11 @@ export default function CustomerFunnel() {
           color={color}
           fingerState={fingerState}
           isMixedLook={isMixedLook}
+          hasInspo={hasInspo}
           onChangeColor={() => setSheet("color")}
           onChangeDesign={() => setSheet("design")}
           onChangeShape={() => setSheet("shape")}
-          onCustomize={() => setStep(5)}
+          onCustomize={() => setStep('customize')}
           onBook={() => setBookingOpen(true)}
         />}
       </main>
@@ -274,7 +342,7 @@ export default function CustomerFunnel() {
             onSelect={(c) => {
               setColor(c);
               setSheet(null);
-              generate({ color: c });
+              generate('custom', { color: c });
             }}
           />
         </SheetContent>
@@ -290,8 +358,8 @@ export default function CustomerFunnel() {
               setSheet(null);
               const keepColor = window.confirm(`Keep ${color?.name || "current colour"}?`);
               setDesign(d);
-              if (!keepColor) { setColor(null); setStep(4); return; }
-              generate({ design: d });
+              if (!keepColor) { setColor(null); setStep('color'); return; }
+              generate('custom', { design: d });
             }}
           />
         </SheetContent>
@@ -308,8 +376,8 @@ export default function CustomerFunnel() {
               setSheet(null);
               setShape(s);
               const keep = window.confirm(`Keep ${design?.label} + ${color?.name || "colour"}?`);
-              if (!keep) { setDesign(null); setColor(null); setStep(3); return; }
-              generate({ shape: s });
+              if (!keep) { setDesign(null); setColor(null); setStep('design'); return; }
+              generate('custom', { shape: s });
             }}
           />
         </SheetContent>
@@ -372,7 +440,208 @@ function Chip({ icon, label, onClear }) {
   );
 }
 
-/* ---------- Step 1: Upload + auto-detect ---------- */
+/* ---------- New flow: Upload one hand + tap each finger nail ---------- */
+const TAP_FINGERS = ["thumb", "index", "middle", "ring", "pinky"];
+
+function StepUploadHand({ hand, handImage, fingerCoords, setFingerCoords, onUpload, onReset, onBack, onDone }) {
+  const inputRef = useRef();
+  const [dragging, setDragging] = useState(false);
+  const handLabel = hand === "left" ? "LEFT" : "RIGHT";
+  const tapIdx = TAP_FINGERS.findIndex((f) => !fingerCoords[`${hand}-${f}`]);
+  const isTapping = handImage && tapIdx !== -1;
+  const isDone = handImage && tapIdx === -1;
+
+  const onPhotoClick = (e) => {
+    if (!isTapping) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width;
+    const y = (e.clientY - r.top) / r.height;
+    const fingerName = TAP_FINGERS[tapIdx];
+    setFingerCoords((prev) => ({ ...prev, [`${hand}-${fingerName}`]: { x, y } }));
+  };
+
+  if (!handImage) {
+    return (
+      <section className="max-w-2xl mx-auto pt-4 slide-up" data-testid={`step-upload-${hand}`}>
+        {onBack && (
+          <button onClick={onBack} className="mb-3 text-sm opacity-70 inline-flex items-center gap-2">
+            <ArrowLeft className="w-4 h-4" /> Back
+          </button>
+        )}
+        <h1 className="funnel-headline text-4xl md:text-5xl font-bold mb-3 text-center">
+          Upload your <span className="italic text-[#C2185B]">{handLabel}</span> hand 📸
+        </h1>
+        <div className="bg-[#fce4ec]/40 border border-[#C2185B]/15 rounded-2xl p-5 mb-6">
+          <ul className="space-y-1.5 text-sm text-gray-700">
+            <li>✅ Hand flat, palm DOWN</li>
+            <li>✅ Fingers spread apart</li>
+            <li>✅ Good lighting, light background</li>
+          </ul>
+        </div>
+        <button
+          onClick={() => inputRef.current?.click()}
+          onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={(e) => { e.preventDefault(); setDragging(false); const f = e.dataTransfer.files?.[0]; if (f) onUpload(f); }}
+          className={`block w-full p-12 rounded-3xl border-4 border-dashed transition cursor-pointer ${
+            dragging ? "border-[#C2185B] bg-[#fce4ec]/40" : "border-[#C2185B]/40 hover:border-[#C2185B] bg-white"
+          }`}
+          data-testid={`upload-${hand}-dropzone`}
+        >
+          <input ref={inputRef} type="file" accept="image/*" className="hidden"
+                 onChange={(e) => { const f = e.target.files?.[0]; if (f) onUpload(f); }}
+                 data-testid={`upload-${hand}-file-input`} />
+          <div className="text-center">
+            <p className="font-serif text-2xl font-semibold mb-2">Tap to upload {hand} hand</p>
+            <p className="text-sm opacity-70">JPG, PNG up to 10MB</p>
+          </div>
+        </button>
+      </section>
+    );
+  }
+
+  return (
+    <section className="max-w-2xl mx-auto pt-4 slide-up" data-testid={`step-upload-${hand}`}>
+      <h2 className="funnel-headline text-3xl md:text-4xl font-bold mb-2 text-center">
+        {handLabel} hand 📸
+      </h2>
+      {isTapping ? (
+        <p className="text-center text-base font-semibold text-[#C2185B] mb-4" data-testid={`tap-prompt-${hand}`}>
+          Tap your <span className="uppercase">{TAP_FINGERS[tapIdx]}</span> nail
+        </p>
+      ) : (
+        <p className="text-center text-base font-semibold text-green-600 mb-4" data-testid={`tap-done-${hand}`}>
+          All 5 fingers marked ✓
+        </p>
+      )}
+
+      <div
+        className="relative rounded-2xl overflow-hidden border-2 border-[#C2185B]/20 bg-gray-50 cursor-crosshair"
+        onClick={onPhotoClick}
+        data-testid={`hand-photo-${hand}`}
+      >
+        <img src={handImage} alt={`${hand} hand`} className="w-full h-auto block select-none" draggable={false} />
+        {TAP_FINGERS.map((f) => {
+          const c = fingerCoords[`${hand}-${f}`];
+          if (!c) return null;
+          return (
+            <div
+              key={f}
+              style={{
+                position: "absolute",
+                left: `${c.x * 100}%`,
+                top: `${c.y * 100}%`,
+                transform: "translate(-50%, -50%)",
+                width: 22, height: 22, borderRadius: "50%",
+                background: "#C2185B",
+                border: "3px solid #FFD700",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+                pointerEvents: "none",
+              }}
+              data-testid={`dot-${hand}-${f}`}
+              title={f}
+            />
+          );
+        })}
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 mt-5">
+        <Button variant="outline" onClick={onReset} className="rounded-full py-5" data-testid={`reset-${hand}-btn`}>
+          ↺ Re-upload
+        </Button>
+        <Button
+          onClick={onDone}
+          disabled={!isDone}
+          className="funnel-cta rounded-full py-5"
+          data-testid={`done-${hand}-btn`}
+        >
+          {isDone ? (hand === "left" ? "Next: right hand →" : "Continue →") : `${5 - tapIdx} fingers left`}
+        </Button>
+      </div>
+    </section>
+  );
+}
+
+function StepInspoChoice({ onYes, onNo, onBack }) {
+  return (
+    <section className="max-w-2xl mx-auto pt-4 slide-up text-center" data-testid="step-inspo-choice">
+      <button onClick={onBack} className="mb-3 text-sm opacity-70 inline-flex items-center gap-2 self-start">
+        <ArrowLeft className="w-4 h-4" /> Back
+      </button>
+      <h2 className="funnel-headline text-4xl md:text-5xl font-bold mb-3">Do you have a nail inspo? 💅</h2>
+      <p className="text-base opacity-70 mb-8">Upload any photo — Pinterest, Instagram, anything</p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <button
+          onClick={onYes}
+          className="bg-[#C2185B] hover:bg-[#A41450] text-white rounded-3xl py-8 px-6 shadow-lg transition"
+          data-testid="inspo-yes-btn"
+        >
+          <p className="text-3xl mb-2">📸</p>
+          <p className="font-serif text-xl font-semibold">Yes, I have inspo</p>
+        </button>
+        <button
+          onClick={onNo}
+          className="bg-white border-2 border-[#C2185B] text-[#C2185B] hover:bg-[#fce4ec]/40 rounded-3xl py-8 px-6 shadow-sm transition"
+          data-testid="inspo-no-btn"
+        >
+          <p className="text-3xl mb-2">🎨</p>
+          <p className="font-serif text-xl font-semibold">No, I&apos;ll customize myself</p>
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function StepInspoUpload({ inspoUrl, onUpload, onBack, onGenerate }) {
+  const inputRef = useRef();
+  const [dragging, setDragging] = useState(false);
+  return (
+    <section className="max-w-2xl mx-auto pt-4 slide-up" data-testid="step-inspo-upload">
+      <button onClick={onBack} className="mb-3 text-sm opacity-70 inline-flex items-center gap-2">
+        <ArrowLeft className="w-4 h-4" /> Back
+      </button>
+      <h2 className="funnel-headline text-3xl md:text-4xl font-bold mb-2 text-center">Upload your inspo 📸</h2>
+      <p className="text-sm opacity-70 text-center mb-6">We&apos;ll match the design as closely as we can</p>
+
+      {!inspoUrl ? (
+        <button
+          onClick={() => inputRef.current?.click()}
+          onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={(e) => { e.preventDefault(); setDragging(false); const f = e.dataTransfer.files?.[0]; if (f) onUpload(f); }}
+          className={`block w-full p-12 rounded-3xl border-4 border-dashed transition cursor-pointer ${
+            dragging ? "border-[#C2185B] bg-[#fce4ec]/40" : "border-[#C2185B]/40 hover:border-[#C2185B] bg-white"
+          }`}
+          data-testid="inspo-dropzone"
+        >
+          <input ref={inputRef} type="file" accept="image/*" className="hidden"
+                 onChange={(e) => { const f = e.target.files?.[0]; if (f) onUpload(f); }}
+                 data-testid="inspo-file-input" />
+          <div className="text-center">
+            <p className="font-serif text-2xl font-semibold mb-2">Tap to upload inspo</p>
+            <p className="text-sm opacity-70">JPG, PNG up to 10MB</p>
+          </div>
+        </button>
+      ) : (
+        <div className="space-y-4">
+          <img src={inspoUrl} alt="Inspo" className="w-full rounded-2xl shadow-md" data-testid="inspo-preview" />
+          <div className="grid grid-cols-2 gap-3">
+            <Button variant="outline" onClick={() => inputRef.current?.click()} className="rounded-full py-5">
+              ↺ Replace
+            </Button>
+            <input ref={inputRef} type="file" accept="image/*" className="hidden"
+                   onChange={(e) => { const f = e.target.files?.[0]; if (f) onUpload(f); }} />
+            <Button onClick={onGenerate} className="funnel-cta rounded-full py-5" data-testid="inspo-generate-btn">
+              Generate my look ✨
+            </Button>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+/* ---------- Step 1: Upload + auto-detect (legacy — kept for change-pickers) ---------- */
 function StepUpload({ tech, imageDataUrl, onUpload, detecting, detection }) {
   const inputRef = useRef();
   const [dragging, setDragging] = useState(false);
@@ -865,7 +1134,7 @@ function StepCustomize({
 }
 
 /* ---------- Step 6: Result + change actions ---------- */
-function StepResult({ tech, imageDataUrl, previewUrl, generating, progress, progressMsg, shape, design, color, fingerState, isMixedLook, onChangeColor, onChangeDesign, onChangeShape, onCustomize, onBook }) {
+function StepResult({ tech, imageDataUrl, previewUrl, leftPreview, rightPreview, generating, progress, progressMsg, shape, design, color, fingerState, isMixedLook, hasInspo, onChangeColor, onChangeDesign, onChangeShape, onCustomize, onBook }) {
   const dayName = new Date(Date.now() + 86400000 * 3).toLocaleDateString("en-US", { weekday: "long" });
   return (
     <section className="max-w-3xl mx-auto pt-2 slide-up pb-32" data-testid="step-result">
@@ -892,25 +1161,38 @@ function StepResult({ tech, imageDataUrl, previewUrl, generating, progress, prog
               </div>
             </div>
           </div>
+        ) : (leftPreview || rightPreview) ? (
+          <div className="grid grid-cols-2 gap-2 p-2 bg-white">
+            <div className="relative">
+              <span className="absolute top-2 left-2 z-10 bg-[#C2185B] text-white text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full">Left</span>
+              <img src={leftPreview} alt="Left hand result" className="w-full rounded-2xl shimmer-reveal" data-testid="result-preview-left" />
+            </div>
+            <div className="relative">
+              <span className="absolute top-2 left-2 z-10 bg-[#C2185B] text-white text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full">Right</span>
+              <img src={rightPreview} alt="Right hand result" className="w-full rounded-2xl shimmer-reveal" data-testid="result-preview-right" />
+            </div>
+          </div>
         ) : (
           <img src={previewUrl} alt="" className="w-full shimmer-reveal" data-testid="result-preview-image" />
         )}
       </div>
 
-      <div className="grid grid-cols-4 gap-2 mt-6">
-        <Button variant="outline" onClick={onChangeColor} className="rounded-full py-5 border-[#C2185B]/30 text-xs" disabled={generating} data-testid="change-color-btn">
-          🎨 Colour
-        </Button>
-        <Button variant="outline" onClick={onChangeDesign} className="rounded-full py-5 border-[#C2185B]/30 text-xs" disabled={generating} data-testid="change-design-btn">
-          💅 Design
-        </Button>
-        <Button variant="outline" onClick={onChangeShape} className="rounded-full py-5 border-[#C2185B]/30 text-xs" disabled={generating} data-testid="change-shape-btn">
-          ✋ Shape
-        </Button>
-        <Button variant="outline" onClick={onCustomize} className="rounded-full py-5 border-[#C2185B]/30 text-xs" disabled={generating} data-testid="customize-fingers-btn">
-          ✋✋ Fingers
-        </Button>
-      </div>
+      {!hasInspo && (
+        <div className="grid grid-cols-4 gap-2 mt-6">
+          <Button variant="outline" onClick={onChangeColor} className="rounded-full py-5 border-[#C2185B]/30 text-xs" disabled={generating} data-testid="change-color-btn">
+            🎨 Colour
+          </Button>
+          <Button variant="outline" onClick={onChangeDesign} className="rounded-full py-5 border-[#C2185B]/30 text-xs" disabled={generating} data-testid="change-design-btn">
+            💅 Design
+          </Button>
+          <Button variant="outline" onClick={onChangeShape} className="rounded-full py-5 border-[#C2185B]/30 text-xs" disabled={generating} data-testid="change-shape-btn">
+            ✋ Shape
+          </Button>
+          <Button variant="outline" onClick={onCustomize} className="rounded-full py-5 border-[#C2185B]/30 text-xs" disabled={generating} data-testid="customize-fingers-btn">
+            ✋✋ Fingers
+          </Button>
+        </div>
+      )}
 
       <Button onClick={onBook} disabled={generating} className="funnel-cta pulse-cta w-full rounded-full py-7 text-base mt-3" data-testid="book-now-btn">
         <Heart className="w-5 h-5 mr-2 text-[#C2185B] fill-[#C2185B]" /> Love it? Book Now
