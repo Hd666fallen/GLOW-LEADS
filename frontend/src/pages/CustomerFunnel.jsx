@@ -657,28 +657,14 @@ function StepCustomize({
 
   const [designCat, setDesignCat] = useState(designGroups[0]?.id);
 
-  // BUG 1 — Per-finger state isolation. Each finger has its OWN object.
-  const [fingerStates, setFingerStates] = useState({
-    'left-thumb':   { shape: null, design: null, color: null },
-    'left-index':   { shape: null, design: null, color: null },
-    'left-middle':  { shape: null, design: null, color: null },
-    'left-ring':    { shape: null, design: null, color: null },
-    'left-pinky':   { shape: null, design: null, color: null },
-    'right-thumb':  { shape: null, design: null, color: null },
-    'right-index':  { shape: null, design: null, color: null },
-    'right-middle': { shape: null, design: null, color: null },
-    'right-ring':   { shape: null, design: null, color: null },
-    'right-pinky':  { shape: null, design: null, color: null },
-  });
-
-  // Pre-fill every finger ONCE with the previous step's selected shape/design/color.
-  // Each finger gets its OWN cloned object — no shared references.
+  // Pre-fill every finger ONCE with the previous step's selected shape/design/color
+  // into the PARENT fingerState. Each finger gets its OWN cloned object.
   const initedRef = useRef(false);
   useEffect(() => {
     if (initedRef.current) return;
     if (!selectedShape || !selectedDesign || !selectedColor) return;
     initedRef.current = true;
-    setFingerStates({
+    setFingerState({
       'left-thumb':   { shape: { ...selectedShape }, design: { ...selectedDesign }, color: { ...selectedColor } },
       'left-index':   { shape: { ...selectedShape }, design: { ...selectedDesign }, color: { ...selectedColor } },
       'left-middle':  { shape: { ...selectedShape }, design: { ...selectedDesign }, color: { ...selectedColor } },
@@ -692,42 +678,23 @@ function StepCustomize({
     });
   }, [selectedShape, selectedDesign, selectedColor]);
 
-  // Mirror the canonical state up to the parent so generate() + result screen can read it.
-  useEffect(() => {
-    if (!setFingerState) return;
-    const snapshot = {};
-    Object.keys(fingerStates).forEach(fid => {
-      snapshot[fid] = {
-        shape: fingerStates[fid].shape
-          ? { ...fingerStates[fid].shape } : null,
-        design: fingerStates[fid].design
-          ? { ...fingerStates[fid].design } : null,
-        color: fingerStates[fid].color
-          ? { ...fingerStates[fid].color } : null,
-      };
-    });
-    setFingerState(snapshot);
-  }, [fingerStates]);
-
-  // BUG 1 — updateFinger writes ONE finger's ONE field. Other 9 fingers untouched.
+  // BUG 1 — updateFinger writes ONE finger's ONE field directly into the
+  // PARENT fingerState. There is no local state — no mirroring, no conflicts.
   const updateFinger = (field, value) => {
-    const fingerId = activeFingerRef.current;
-    const valueCopy = value && typeof value === 'object'
-      ? { ...value }
-      : value;
-    setFingerStates(prev => ({
+    const valueCopy = value && typeof value === 'object' ? { ...value } : value;
+    setFingerState(prev => ({
       ...prev,
-      [fingerId]: {
-        ...prev[fingerId],
+      [activeFingerRef.current]: {
+        ...prev[activeFingerRef.current],
         [field]: valueCopy
       }
     }));
   };
 
   const applyToAll = () => {
-    const src = fingerStates[activeFinger];
+    const src = fingerState?.[activeFinger];
     if (!src) return;
-    setFingerStates({
+    setFingerState({
       'left-thumb':   { shape: src.shape ? { ...src.shape } : null, design: src.design ? { ...src.design } : null, color: src.color ? { ...src.color } : null },
       'left-index':   { shape: src.shape ? { ...src.shape } : null, design: src.design ? { ...src.design } : null, color: src.color ? { ...src.color } : null },
       'left-middle':  { shape: src.shape ? { ...src.shape } : null, design: src.design ? { ...src.design } : null, color: src.color ? { ...src.color } : null },
@@ -743,7 +710,7 @@ function StepCustomize({
   };
 
   const currentFingers = fingerIds.filter((f) => f.startsWith(`${hand}-`));
-  const editing = fingerStates[activeFinger];
+  const editing = fingerState?.[activeFinger];
   const editingFingerLabel = `${activeFinger.startsWith("left-") ? "Left" : "Right"} ${FINGER_LABELS[activeFinger.split("-")[1]]}`;
 
   return (
@@ -771,7 +738,7 @@ function StepCustomize({
       {/* STEP 3: Clean nail-slot selector — colour only, no photos */}
       <div className="grid grid-cols-5 gap-3 mb-3 justify-items-center" data-testid="finger-preview-row">
         {currentFingers.map((fid) => {
-          const fs = fingerStates[fid];
+          const fs = fingerState?.[fid];
           const fname = FINGER_LABELS[fid.split("-")[1]];
           const isActive = fid === activeFinger;
           return (
