@@ -529,7 +529,14 @@ async def ai_try_on(data: TryOnIn):
             f"Edit this exact photo of a hand. Keep the hand, skin tone, lighting and background identical. "
             f"Only change the fingernails to show {shape_text} nails in {style_name} style ({style_hint}){color_text}. "
             f"Photorealistic, professional nail salon quality, sharp focus, natural shadows. "
-            f"Same hand preserved, high quality. Do not change anything else about the image."
+            f"Same hand preserved, high quality. Do not change anything else about the image.\n\n"
+            f"The uploaded photo shows BOTH hands palms facing DOWN with fingers spread.\n"
+            f"LEFT hand is on the LEFT side of photo: finger order from left to right is: "
+            f"pinky, ring, middle, index, thumb.\n"
+            f"RIGHT hand is on the RIGHT side of photo: finger order from left to right is: "
+            f"thumb, index, middle, ring, pinky.\n"
+            f"Apply each finger nail change to the EXACT finger at that position in the photo. "
+            f"Do NOT copy changes from one finger to any other finger."
             f"{per_finger_text}"
         )
         msg = UserMessage(text=prompt, file_contents=[ImageContent(raw_b64)])

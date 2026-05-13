@@ -384,6 +384,18 @@ function StepUpload({ tech, imageDataUrl, onUpload, detecting, detection }) {
       </h1>
       <p className="opacity-70 text-center mb-8">Upload a clear photo of your hand. We&apos;ll do the rest.</p>
 
+      {!imageDataUrl && (
+        <div className="bg-[#fce4ec]/40 border border-[#C2185B]/15 rounded-2xl p-5 mb-6" data-testid="upload-guide">
+          <h3 className="font-serif text-lg font-semibold mb-3 text-[#C2185B]">📸 Before you upload — read this</h3>
+          <ul className="space-y-1.5 text-sm text-gray-700">
+            <li>✅ Both hands flat, palms facing DOWN</li>
+            <li>✅ Fingers spread apart</li>
+            <li>✅ Left hand on LEFT side of photo</li>
+            <li>✅ Right hand on RIGHT side of photo</li>
+          </ul>
+        </div>
+      )}
+
       {!imageDataUrl ? (
         <div
           className={`dropzone rounded-3xl p-12 md:p-16 text-center cursor-pointer ${dragging ? "dragging" : ""}`}
@@ -677,13 +689,17 @@ function StepCustomize({
 
   const updateFinger = (field, value) => {
     const fid = activeFingerRef.current;
-    const copy = value && typeof value === "object" ? { ...value } : value;
+    const copy = value && typeof value === "object"
+      ? JSON.parse(JSON.stringify(value))
+      : value;
     setFingerState(prev => {
       if (!prev) return prev;
-      return {
-        ...prev,
-        [fid]: { ...prev[fid], [field]: copy },
+      const next = { ...prev };
+      next[fid] = {
+        ...prev[fid],
+        [field]: copy
       };
+      return next;
     });
   };
 
@@ -704,7 +720,11 @@ function StepCustomize({
     toast.success("Applied to all 10 fingers");
   };
 
-  const currentFingers = fingerIds.filter(f => f.startsWith(`${hand}-`));
+  const HAND_FINGER_ORDER = {
+    left:  ["left-pinky","left-ring","left-middle","left-index","left-thumb"],
+    right: ["right-thumb","right-index","right-middle","right-ring","right-pinky"],
+  };
+  const currentFingers = HAND_FINGER_ORDER[hand];
   const editing = fingerState?.[activeFinger];
   const editingLabel = `${activeFinger.startsWith("left") ? "Left" : "Right"} ${FINGER_LABELS[activeFinger.split("-")[1]]}`;
 
