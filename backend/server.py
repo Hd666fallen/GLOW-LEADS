@@ -451,12 +451,12 @@ async def ai_try_on(data: TryOnIn):
     style = STYLE_MAP.get(data.style_id) if data.style_id else None
     shape = SHAPE_MAP.get(data.shape_id) if data.shape_id else None
 
-    if not design and not style:
+    if not design and not style and not data.inspo_b64:
         raise HTTPException(status_code=400, detail="design_id or style_id is required")
 
     fallback_image = (design or style)["image"] if (design or style) else None
-    style_name = (design or style)["label" if design else "name"]
-    style_hint = (style.get("prompt_hint") if style else None) or design["label"].lower()
+    style_name = (design or style)["label" if design else "name"] if (design or style) else "custom"
+    style_hint = ((style.get("prompt_hint") if style else None) or design["label"].lower()) if (design or style) else "inspo"
 
     raw_b64 = _decode_image(data.image_base64)
     try:
