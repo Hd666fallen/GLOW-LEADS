@@ -657,7 +657,7 @@ async def create_lead(data: LeadIn):
         "finger_customizations": data.finger_customizations or [],
         "status": "not_booked",
         "follow_ups_sent": 0,
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(timstyle_nameezone.utc).isoformat(),
     }
     await db.leads.insert_one(dict(lead))
     return lead
@@ -668,7 +668,7 @@ async def create_booking(data: BookingIn):
     tech = await _resolve_tech_by_slug(data.tech_slug)
     design = DESIGN_MAP.get(data.design_id) if data.design_id else None
     style = STYLE_MAP.get(data.style_id) if data.style_id else None
-    if not design and not style:
+    if not design and not style and not data.inspo_b64:
         raise HTTPException(status_code=400, detail="design_id or style_id is required")
     label = design["label"] if design else style["name"]
     category = design["group_label"] if design else style.get("category", "")
