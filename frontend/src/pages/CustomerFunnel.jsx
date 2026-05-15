@@ -46,7 +46,7 @@ export default function CustomerFunnel() {
   // Per-finger customizer state (10 fingers)
   const FINGER_IDS = ["left-thumb","left-index","left-middle","left-ring","left-pinky","right-thumb","right-index","right-middle","right-ring","right-pinky"];
   const [fingerState, setFingerState] = useState(null);
-  const [fingerInited, setFingerInited] = useState(false);
+  const [fingerInited, setFingerInited] = useState(true);
 
   const initFingerStateIfNeeded = (force = false) => {
     if (!shape || !design || !color) return;
@@ -117,7 +117,7 @@ export default function CustomerFunnel() {
         if (c) coords[f] = { x: c.x, y: c.y };
       }
       let customizations = null;
-      if (mode === 'custom' && fingerInited && fingerState) {
+      if (mode === 'custom' && fingerState) {
         customizations = Object.entries(fingerState)
           .filter(([fid]) => fid.startsWith(hand))
           .map(([fid, fs]) => ({
