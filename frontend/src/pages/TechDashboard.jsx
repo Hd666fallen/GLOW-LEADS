@@ -4,7 +4,7 @@ import { api, currentUser, currentToken, clearAuth, verifyAuth, saveAuth } from 
 import { toast } from "sonner";
 import {
   Home as HomeIcon, Calendar, Users, Settings as SettingsIcon,
-  LogOut, Sparkles, Phone, MessageSquare, Share2, Copy, Check, Star, X, ImagePlus,
+  LogOut, Sparkles, Phone, MessageSquare, Share2, Copy, Check, Star, X, ImagePlus, Plus, Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -81,7 +81,6 @@ function HomeTab({ user }) {
   useEffect(() => { api.get("/tech/me/stats").then((r) => setStats(r.data)); }, []);
 
   const link = `${window.location.origin}/try/${user.slug}`;
-
   const hour = new Date().getHours();
   const greet = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
 
@@ -111,7 +110,6 @@ function HomeTab({ user }) {
             onClick={() => { navigator.clipboard.writeText(link); setCopied(true); toast.success("Copied!"); setTimeout(() => setCopied(false), 1500); }}
             className="p-2 hover:bg-pink-50 rounded-lg shrink-0"
             data-testid="copy-link-btn"
-            aria-label="Copy funnel link"
           >
             {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4 text-[#C2185B]" />}
           </button>
@@ -124,17 +122,10 @@ function HomeTab({ user }) {
             data-testid="funnel-qr-code"
           />
           <div className="space-y-2">
-            <Button
-              variant="outline"
-              className="w-full rounded-full border-[#C2185B] text-[#C2185B] hover:bg-[#C2185B] hover:text-white"
-              onClick={() => window.open(link, "_blank")}
-              data-testid="preview-funnel-btn"
-            >
+            <Button variant="outline" className="w-full rounded-full border-[#C2185B] text-[#C2185B] hover:bg-[#C2185B] hover:text-white" onClick={() => window.open(link, "_blank")} data-testid="preview-funnel-btn">
               <Share2 className="w-4 h-4 mr-2" /> Preview my funnel
             </Button>
-            <p className="text-[11px] text-gray-500 leading-snug">
-              Scan or share this QR on your Instagram bio, business card or front desk.
-            </p>
+            <p className="text-[11px] text-gray-500 leading-snug">Scan or share this QR on your Instagram bio, business card or front desk.</p>
           </div>
         </div>
       </div>
@@ -177,9 +168,7 @@ function formatWhen(iso) {
     if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
     if (diff < 86400 * 7) return `${Math.floor(diff / 86400)}d ago`;
     return d.toLocaleDateString();
-  } catch {
-    return "";
-  }
+  } catch { return ""; }
 }
 
 function StatCard({ label, value, testid }) {
@@ -196,10 +185,8 @@ function AppointmentsTab() {
   const [loading, setLoading] = useState(true);
   const load = async () => {
     setLoading(true);
-    try {
-      const r = await api.get("/tech/me/appointments");
-      setAppts(r.data.appointments);
-    } finally { setLoading(false); }
+    try { const r = await api.get("/tech/me/appointments"); setAppts(r.data.appointments); }
+    finally { setLoading(false); }
   };
   useEffect(() => { load(); }, []);
 
@@ -210,10 +197,8 @@ function AppointmentsTab() {
 
   const now = Date.now();
   const isPast = (a) => {
-    try {
-      const t = new Date(`${a.date}T${a.time}:00`).getTime();
-      return t < now;
-    } catch { return false; }
+    try { return new Date(`${a.date}T${a.time}:00`).getTime() < now; }
+    catch { return false; }
   };
 
   return (
@@ -221,9 +206,7 @@ function AppointmentsTab() {
       <h1 className="font-serif text-2xl font-bold mb-1">Appointments</h1>
       <p className="text-xs text-gray-500 mb-5">Tap Complete or Cancel — or swipe on mobile</p>
       {loading ? (
-        <div className="space-y-3">
-          {[1,2,3].map((i) => <div key={i} className="tech-card p-4 h-24 animate-pulse bg-gray-100" />)}
-        </div>
+        <div className="space-y-3">{[1,2,3].map((i) => <div key={i} className="tech-card p-4 h-24 animate-pulse bg-gray-100" />)}</div>
       ) : (
         <div className="space-y-3">
           {appts.map((a) => (
@@ -237,32 +220,23 @@ function AppointmentsTab() {
                       a.status === "completed" ? "bg-green-100 text-green-700" :
                       a.status === "confirmed" ? "bg-blue-100 text-blue-700" :
                       a.status === "cancelled" ? "bg-red-100 text-red-700" :
-                      a.status === "no-show" ? "bg-red-100 text-red-700" :
                       "bg-amber-100 text-amber-700"
                     }>{a.status}</Badge>
-                    {a.status === "confirmed" && isPast({...a}) === false && (
-                      <span className="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">📅 Reminder scheduled</span>
-                    )}
-                    {a.status === "completed" && (
-                      <span className="text-[10px] bg-[#FADADD]/60 text-[#B76E79] px-2 py-0.5 rounded-full">⭐ Review requested</span>
-                    )}
+                    {a.status === "confirmed" && !isPast(a) && <span className="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">📅 Reminder scheduled</span>}
+                    {a.status === "completed" && <span className="text-[10px] bg-[#FADADD]/60 text-[#B76E79] px-2 py-0.5 rounded-full">⭐ Review requested</span>}
                   </div>
                   <p className="text-sm text-gray-600">{a.style_name}</p>
                   <p className="text-xs text-gray-500">{a.date} at {a.time} · ${a.price}</p>
                   <div className="flex gap-2 mt-2">
-                    <a href={`tel:${a.client_phone}`} className="text-xs bg-gray-100 px-3 py-1.5 rounded-full flex items-center gap-1" data-testid={`call-${a.id}`}>
-                      <Phone className="w-3 h-3" /> Call
-                    </a>
-                    <a href={`sms:${a.client_phone}`} className="text-xs bg-gray-100 px-3 py-1.5 rounded-full flex items-center gap-1" data-testid={`sms-${a.id}`}>
-                      <MessageSquare className="w-3 h-3" /> Text
-                    </a>
+                    <a href={`tel:${a.client_phone}`} className="text-xs bg-gray-100 px-3 py-1.5 rounded-full flex items-center gap-1"><Phone className="w-3 h-3" /> Call</a>
+                    <a href={`sms:${a.client_phone}`} className="text-xs bg-gray-100 px-3 py-1.5 rounded-full flex items-center gap-1"><MessageSquare className="w-3 h-3" /> Text</a>
                   </div>
                 </div>
               </div>
               {a.status !== "completed" && a.status !== "cancelled" && a.status !== "no-show" && (
                 <div className="grid grid-cols-2 gap-2 mt-3">
-                  <Button variant="outline" size="sm" className="rounded-full" onClick={() => setStatus(a.id, "cancelled")} data-testid={`cancel-${a.id}`}>Cancel</Button>
-                  <Button size="sm" className="rounded-full rose-gold-gradient" onClick={() => setStatus(a.id, "completed")} data-testid={`complete-${a.id}`}>Mark complete</Button>
+                  <Button variant="outline" size="sm" className="rounded-full" onClick={() => setStatus(a.id, "cancelled")}>Cancel</Button>
+                  <Button size="sm" className="rounded-full rose-gold-gradient" onClick={() => setStatus(a.id, "completed")}>Mark complete</Button>
                 </div>
               )}
             </div>
@@ -279,10 +253,8 @@ function LeadsTab() {
   const [loading, setLoading] = useState(true);
   const load = async () => {
     setLoading(true);
-    try {
-      const r = await api.get("/tech/me/leads");
-      setData(r.data);
-    } finally { setLoading(false); }
+    try { const r = await api.get("/tech/me/leads"); setData(r.data); }
+    finally { setLoading(false); }
   };
   useEffect(() => { load(); }, []);
 
@@ -302,13 +274,11 @@ function LeadsTab() {
     <div className="px-5 pt-8" data-testid="tech-leads-tab">
       <h1 className="font-serif text-2xl font-bold mb-1">Leads</h1>
       <p className="text-xs text-gray-500 mb-4">Auto-nurtured by the system — you can still send a manual follow-up.</p>
-
       <div className="tech-card p-4 mb-5 text-sm flex justify-between">
         <Stat label="Tried" value={s.total_tryons ?? 0} />
         <Stat label="Booked %" value={`${s.conversion_pct ?? 0}%`} />
         <Stat label="Follow-ups" value={s.followups_sent ?? 0} />
       </div>
-
       {loading ? (
         <div className="space-y-3">{[1,2,3].map((i) => <div key={i} className="tech-card h-20 animate-pulse bg-gray-100" />)}</div>
       ) : (
@@ -322,12 +292,12 @@ function LeadsTab() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-semibold truncate">{l.name}</p>
-                      <span className={`text-[10px] px-2 py-0.5 rounded-full ${b.cls}`} data-testid={`lead-temp-${l.id}`}>{b.label}</span>
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full ${b.cls}`}>{b.label}</span>
                     </div>
                     <p className="text-xs text-gray-500">{l.style_name}</p>
                     <p className="text-[10px] text-gray-400 mt-0.5">{formatWhen(l.created_at)} · {l.follow_ups_sent || 0} auto follow-ups sent</p>
                     {l.temperature !== "cold" && (
-                      <Button size="sm" className="rounded-full rose-gold-gradient mt-2" onClick={() => followUp(l.id)} data-testid={`followup-${l.id}`}>
+                      <Button size="sm" className="rounded-full rose-gold-gradient mt-2" onClick={() => followUp(l.id)}>
                         <MessageSquare className="w-3 h-3 mr-2" /> Send follow-up now
                       </Button>
                     )}
@@ -337,9 +307,8 @@ function LeadsTab() {
             })}
             {data.leads.length === 0 && <p className="text-center text-sm text-gray-400 py-10">No leads yet.</p>}
           </div>
-
           {data.winback && data.winback.length > 0 && (
-            <div className="mt-6" data-testid="winback-section">
+            <div className="mt-6">
               <div className="flex items-center gap-2 mb-3">
                 <h2 className="font-serif text-lg font-bold">Win-back 💌</h2>
                 <span className="text-[10px] text-[#B76E79] bg-[#FADADD]/40 px-2 py-0.5 rounded-full">30+ days inactive</span>
@@ -347,7 +316,7 @@ function LeadsTab() {
               <p className="text-xs text-gray-500 mb-3">System auto-sent these a re-engagement SMS.</p>
               <div className="space-y-2">
                 {data.winback.map((l) => (
-                  <div key={l.id} className="tech-card p-3 flex items-center gap-3" data-testid={`winback-card-${l.id}`}>
+                  <div key={l.id} className="tech-card p-3 flex items-center gap-3">
                     <img src={l.preview_image} alt="" className="w-10 h-10 rounded-lg object-cover" />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold truncate">{l.name}</p>
@@ -379,11 +348,11 @@ function SettingsTab({ user }) {
       <h1 className="font-serif text-2xl font-bold mb-4">Settings</h1>
       <Tabs defaultValue="page">
         <TabsList className="grid grid-cols-5 mb-4">
-          <TabsTrigger value="page" data-testid="tab-page">Page</TabsTrigger>
-          <TabsTrigger value="styles" data-testid="tab-styles">Styles</TabsTrigger>
-          <TabsTrigger value="avail" data-testid="tab-avail">Hours</TabsTrigger>
-          <TabsTrigger value="automations" data-testid="tab-automations">Auto</TabsTrigger>
-          <TabsTrigger value="account" data-testid="tab-account">Account</TabsTrigger>
+          <TabsTrigger value="page">Page</TabsTrigger>
+          <TabsTrigger value="styles">Styles</TabsTrigger>
+          <TabsTrigger value="avail">Hours</TabsTrigger>
+          <TabsTrigger value="automations">Auto</TabsTrigger>
+          <TabsTrigger value="account">Account</TabsTrigger>
         </TabsList>
         <TabsContent value="page" forceMount className="data-[state=inactive]:hidden"><MyPage user={user} /></TabsContent>
         <TabsContent value="styles" forceMount className="data-[state=inactive]:hidden"><StyleManager /></TabsContent>
@@ -405,26 +374,42 @@ function MyPage({ user }) {
     catch { toast.error("Couldn't save"); }
   };
   return (
-    <div className="tech-card p-5 space-y-3" data-testid="my-page-panel">
+    <div className="tech-card p-5 space-y-3">
       <div className="flex items-center gap-3">
         <img src={p.profile_photo} alt="" className="w-16 h-16 rounded-full object-cover" />
-        <Input value={p.profile_photo} onChange={(e) => setP({ ...p, profile_photo: e.target.value })} placeholder="Photo URL" data-testid="profile-photo-input" />
+        <Input value={p.profile_photo} onChange={(e) => setP({ ...p, profile_photo: e.target.value })} placeholder="Photo URL" />
       </div>
-      <div><Label>Business name</Label><Input value={p.business_name} onChange={(e) => setP({ ...p, business_name: e.target.value })} data-testid="profile-business-input" /></div>
-      <div><Label>City</Label><Input value={p.city} onChange={(e) => setP({ ...p, city: e.target.value })} data-testid="profile-city-input" /></div>
-      <div><Label>Bio</Label><Textarea value={p.bio} onChange={(e) => setP({ ...p, bio: e.target.value })} rows={3} data-testid="profile-bio-input" /></div>
-      <Button onClick={save} className="w-full rounded-full rose-gold-gradient" data-testid="profile-save-btn">Save</Button>
+      <div><Label>Business name</Label><Input value={p.business_name} onChange={(e) => setP({ ...p, business_name: e.target.value })} /></div>
+      <div><Label>City</Label><Input value={p.city} onChange={(e) => setP({ ...p, city: e.target.value })} /></div>
+      <div><Label>Bio</Label><Textarea value={p.bio} onChange={(e) => setP({ ...p, bio: e.target.value })} rows={3} /></div>
+      <Button onClick={save} className="w-full rounded-full rose-gold-gradient">Save</Button>
     </div>
   );
 }
 
+const DESIGN_CATEGORIES = [
+  { id: "popular", label: "Most Popular" },
+  { id: "french", label: "French" },
+  { id: "ombre", label: "Ombre" },
+  { id: "chrome", label: "Chrome" },
+  { id: "nail-art", label: "Nail Art" },
+  { id: "embellishments", label: "Embellishments" },
+  { id: "specialty", label: "Specialty" },
+];
+
 function StyleManager() {
-  const [data, setData] = useState({ all: [], enabled_ids: [], style_photos: {} });
+  const [data, setData] = useState({ all: [], enabled_ids: [], style_photos: {}, custom_designs: [] });
   const [q, setQ] = useState("");
   const [cat, setCat] = useState("ALL");
   const [prices, setPrices] = useState({});
   const [uploading, setUploading] = useState(null);
-  useEffect(() => { api.get("/tech/me/styles").then((r) => setData({ style_photos: {}, ...r.data })); }, []);
+  const [showAddDesign, setShowAddDesign] = useState(false);
+  const [newDesign, setNewDesign] = useState({ name: "", group_id: "popular", price_low: 40, price_high: 80 });
+  const [addingDesign, setAddingDesign] = useState(false);
+
+  useEffect(() => {
+    api.get("/tech/me/styles").then((r) => setData({ style_photos: {}, custom_designs: [], ...r.data }));
+  }, []);
 
   const toggle = async (id) => {
     const enabled = new Set(data.enabled_ids);
@@ -448,9 +433,7 @@ function StyleManager() {
       toast.success("Photo uploaded ✨");
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Upload failed");
-    } finally {
-      setUploading(null);
-    }
+    } finally { setUploading(null); }
   };
 
   const removePhoto = async (styleId) => {
@@ -462,9 +445,46 @@ function StyleManager() {
         return { ...d, style_photos: next };
       });
       toast.success("Photo removed");
-    } catch {
-      toast.error("Couldn't remove");
-    }
+    } catch { toast.error("Couldn't remove"); }
+  };
+
+  const uploadCustomPhoto = async (designId, file) => {
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { toast.error("Max 5MB"); return; }
+    setUploading(designId);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const r = await api.post(`/tech/me/custom-designs/${designId}/photo`, fd, { headers: { "Content-Type": "multipart/form-data" } });
+      setData((d) => ({
+        ...d,
+        custom_designs: d.custom_designs.map((cd) => cd.id === designId ? { ...cd, image: r.data.url } : cd),
+      }));
+      toast.success("Photo uploaded ✨");
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Upload failed");
+    } finally { setUploading(null); }
+  };
+
+  const deleteCustomDesign = async (designId) => {
+    try {
+      await api.delete(`/tech/me/custom-designs/${designId}`);
+      setData((d) => ({ ...d, custom_designs: d.custom_designs.filter((cd) => cd.id !== designId) }));
+      toast.success("Design deleted");
+    } catch { toast.error("Couldn't delete"); }
+  };
+
+  const addCustomDesign = async () => {
+    if (!newDesign.name.trim()) { toast.error("Please enter a design name"); return; }
+    setAddingDesign(true);
+    try {
+      const r = await api.post("/tech/me/custom-designs", newDesign);
+      setData((d) => ({ ...d, custom_designs: [...(d.custom_designs || []), r.data.custom_design] }));
+      setNewDesign({ name: "", group_id: "popular", price_low: 40, price_high: 80 });
+      setShowAddDesign(false);
+      toast.success("Design added! Upload a photo for it ✨");
+    } catch { toast.error("Couldn't add design"); }
+    finally { setAddingDesign(false); }
   };
 
   const enabledSet = new Set(data.enabled_ids);
@@ -474,33 +494,135 @@ function StyleManager() {
     (!q || s.name.toLowerCase().includes(q.toLowerCase()))
   );
   const catLabel = (c) => ({
-    ALL: "All",
-    FINISHES: "Finishes", FRENCH: "French", OMBRE: "Ombre",
+    ALL: "All", FINISHES: "Finishes", FRENCH: "French", OMBRE: "Ombre",
     NAIL_ART: "Art", EMBELLISHMENTS: "Gems", COLORS: "Colors", SPECIALTY: "Specialty",
   }[c] || c);
-
   const absolutise = (url) => (url && url.startsWith("/api/") ? `${process.env.REACT_APP_BACKEND_URL}${url}` : url);
 
   return (
     <div data-testid="style-manager-panel">
+      {/* Add New Design Button */}
+      <button
+        onClick={() => setShowAddDesign(!showAddDesign)}
+        className="w-full mb-3 flex items-center justify-center gap-2 bg-[#C2185B] text-white rounded-xl py-3 font-semibold text-sm"
+      >
+        <Plus className="w-4 h-4" />
+        Add My Own Design
+      </button>
+
+      {/* Add New Design Form */}
+      {showAddDesign && (
+        <div className="tech-card p-4 mb-3 border-2 border-[#C2185B]/30">
+          <p className="text-sm font-semibold text-[#C2185B] mb-3">✨ New Custom Design</p>
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">Design Name</Label>
+              <Input
+                value={newDesign.name}
+                onChange={(e) => setNewDesign({ ...newDesign, name: e.target.value })}
+                placeholder="e.g. My Signature Chrome"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Category</Label>
+              <select
+                value={newDesign.group_id}
+                onChange={(e) => setNewDesign({ ...newDesign, group_id: e.target.value })}
+                className="w-full mt-1 border rounded-lg px-3 py-2 text-sm"
+              >
+                {DESIGN_CATEGORIES.map((c) => (
+                  <option key={c.id} value={c.id}>{c.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs">Price from $</Label>
+                <Input
+                  type="number"
+                  value={newDesign.price_low}
+                  onChange={(e) => setNewDesign({ ...newDesign, price_low: parseInt(e.target.value) || 0 })}
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Price to $</Label>
+                <Input
+                  type="number"
+                  value={newDesign.price_high}
+                  onChange={(e) => setNewDesign({ ...newDesign, price_high: parseInt(e.target.value) || 0 })}
+                  className="mt-1"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Button variant="outline" onClick={() => setShowAddDesign(false)} className="rounded-full">Cancel</Button>
+              <Button onClick={addCustomDesign} disabled={addingDesign} className="rounded-full rose-gold-gradient">
+                {addingDesign ? "Adding..." : "Add Design"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Designs List */}
+      {data.custom_designs && data.custom_designs.length > 0 && (
+        <div className="mb-3">
+          <p className="text-xs font-semibold text-[#C2185B] uppercase tracking-wider mb-2 px-1">My Custom Designs</p>
+          <div className="space-y-2">
+            {data.custom_designs.map((cd) => {
+              const isUploading = uploading === cd.id;
+              const imgUrl = cd.image ? absolutise(cd.image) : null;
+              return (
+                <div key={cd.id} className="tech-card p-3 flex items-center gap-3">
+                  <div className="relative w-12 h-12 shrink-0">
+                    {imgUrl ? (
+                      <img src={imgUrl} alt={cd.name} className="w-12 h-12 rounded-lg object-cover ring-2 ring-[#C2185B]" />
+                    ) : (
+                      <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center border-2 border-dashed border-gray-300">
+                        <ImagePlus className="w-4 h-4 text-gray-400" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold truncate">{cd.name}</p>
+                      <span className="text-[9px] bg-[#C2185B] text-white uppercase tracking-wider px-1.5 py-0.5 rounded">Her work ✨</span>
+                    </div>
+                    <p className="text-[10px] text-gray-500">${cd.price_low}–${cd.price_high} · {DESIGN_CATEGORIES.find(c => c.id === cd.group_id)?.label}</p>
+                    <label className={`text-[10px] inline-flex items-center gap-1 text-[#B76E79] underline cursor-pointer mt-1 ${isUploading ? "opacity-50 pointer-events-none" : ""}`}>
+                      <ImagePlus className="w-3 h-3" />
+                      {isUploading ? "Uploading..." : (imgUrl ? "Replace photo" : "Upload photo")}
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        className="hidden"
+                        onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) uploadCustomPhoto(cd.id, f); }}
+                      />
+                    </label>
+                  </div>
+                  <button onClick={() => deleteCustomDesign(cd.id)} className="text-red-400 hover:text-red-600 p-1">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Existing Styles */}
       <div className="tech-card p-4 mb-3">
-        <Input placeholder="Search styles..." value={q} onChange={(e) => setQ(e.target.value)} data-testid="style-search-input" />
+        <Input placeholder="Search styles..." value={q} onChange={(e) => setQ(e.target.value)} />
         <div className="flex gap-1.5 overflow-x-auto no-scrollbar mt-3 pb-1">
           {cats.map((c) => (
-            <button
-              key={c} onClick={() => setCat(c)}
-              className={`shrink-0 text-xs px-3 py-1.5 rounded-full font-semibold ${
-                cat === c ? "bg-[#B76E79] text-white" : "bg-gray-100 text-gray-600"
-              }`}
-              data-testid={`style-cat-${c}`}
-            >
+            <button key={c} onClick={() => setCat(c)} className={`shrink-0 text-xs px-3 py-1.5 rounded-full font-semibold ${cat === c ? "bg-[#B76E79] text-white" : "bg-gray-100 text-gray-600"}`}>
               {catLabel(c)}
             </button>
           ))}
         </div>
-        <p className="text-xs text-gray-500 mt-2" data-testid="style-counter">
-          {enabledSet.size} of {data.all.length} styles enabled
-        </p>
+        <p className="text-xs text-gray-500 mt-2">{enabledSet.size} of {data.all.length} styles enabled</p>
       </div>
 
       <div className="space-y-2 overflow-y-auto h-[calc(100vh-120px)] max-h-[calc(100vh-120px)] pr-1">
@@ -513,17 +635,12 @@ function StyleManager() {
             <div key={s.id} className="tech-card p-3 flex items-center gap-3" data-testid={`style-row-${s.id}`}>
               <div className="relative w-12 h-12 shrink-0">
                 {customUrl ? (
-                  <img src={absolutise(customUrl)} alt={s.name} className="w-12 h-12 rounded-lg object-cover ring-2 ring-[#C2185B]" data-testid={`style-thumb-${s.id}`} />
+                  <img src={absolutise(customUrl)} alt={s.name} className="w-12 h-12 rounded-lg object-cover ring-2 ring-[#C2185B]" />
                 ) : (
-                  <StyleImage src={s.image} category={s.category} className="w-12 h-12 rounded-lg object-cover" data-testid={`style-thumb-${s.id}`} />
+                  <StyleImage src={s.image} category={s.category} className="w-12 h-12 rounded-lg object-cover" />
                 )}
                 {customUrl && (
-                  <button
-                    onClick={() => removePhoto(s.id)}
-                    className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center shadow hover:bg-red-600"
-                    title="Remove photo"
-                    data-testid={`remove-photo-${s.id}`}
-                  >
+                  <button onClick={() => removePhoto(s.id)} className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center shadow hover:bg-red-600">
                     <X className="w-3 h-3" strokeWidth={3} />
                   </button>
                 )}
@@ -536,29 +653,15 @@ function StyleManager() {
                 </div>
                 <div className="flex items-center gap-2 mt-1.5">
                   <span className="text-[10px] text-gray-400">Price $</span>
-                  <input
-                    type="number" value={price}
-                    onChange={(e) => setPrices({ ...prices, [s.id]: e.target.value })}
-                    className="w-16 text-xs border rounded px-2 py-0.5"
-                    data-testid={`price-${s.id}`}
-                  />
-                  <label
-                    className={`text-[10px] inline-flex items-center gap-1 text-[#B76E79] underline cursor-pointer ${isUploading ? "opacity-50 pointer-events-none" : ""}`}
-                    data-testid={`upload-photo-${s.id}`}
-                  >
+                  <input type="number" value={price} onChange={(e) => setPrices({ ...prices, [s.id]: e.target.value })} className="w-16 text-xs border rounded px-2 py-0.5" />
+                  <label className={`text-[10px] inline-flex items-center gap-1 text-[#B76E79] underline cursor-pointer ${isUploading ? "opacity-50 pointer-events-none" : ""}`}>
                     <ImagePlus className="w-3 h-3" />
                     {isUploading ? "Uploading..." : (customUrl ? "Replace photo" : "Upload photo")}
-                    <input
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp"
-                      className="hidden"
-                      onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) uploadPhoto(s.id, f); }}
-                      data-testid={`upload-input-${s.id}`}
-                    />
+                    <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) uploadPhoto(s.id, f); }} />
                   </label>
                 </div>
               </div>
-              <Switch checked={on} onCheckedChange={() => toggle(s.id)} data-testid={`style-toggle-${s.id}`} />
+              <Switch checked={on} onCheckedChange={() => toggle(s.id)} />
             </div>
           );
         })}
@@ -600,20 +703,18 @@ function AutomationsPanel() {
         </div>
         <p className="text-xs text-gray-500">Your robot assistant — running 24/7. Toggle anything off if you prefer.</p>
       </div>
-
       <div className="space-y-2">
         {rows.map((r) => (
-          <div key={r.key} className="tech-card p-4 flex items-start gap-3" data-testid={`automation-${r.key}`}>
+          <div key={r.key} className="tech-card p-4 flex items-start gap-3">
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold">{r.title}</p>
               <p className="text-xs text-gray-500 mt-0.5">{r.desc}</p>
             </div>
-            <Switch checked={!!data.settings[r.key]} onCheckedChange={(v) => update(r.key, v)} data-testid={`toggle-${r.key}`} />
+            <Switch checked={!!data.settings[r.key]} onCheckedChange={(v) => update(r.key, v)} />
           </div>
         ))}
       </div>
-
-      <div className="tech-card p-4 mt-4" data-testid="automation-stats">
+      <div className="tech-card p-4 mt-4">
         <p className="text-xs uppercase tracking-wider text-gray-500 mb-2">This week, automatically</p>
         <div className="flex justify-between">
           <Stat label="SMS sent" value={data.stats.sms_this_week} />
@@ -628,7 +729,7 @@ function AutomationsPanel() {
 function Availability() {
   const [days, setDays] = useState({ Mon: true, Tue: true, Wed: true, Thu: true, Fri: true, Sat: true, Sun: false });
   return (
-    <div className="tech-card p-5 space-y-3" data-testid="availability-panel">
+    <div className="tech-card p-5 space-y-3">
       <p className="text-sm font-semibold">Working days</p>
       {Object.entries(days).map(([d, on]) => (
         <div key={d} className="flex items-center justify-between">
@@ -643,13 +744,11 @@ function Availability() {
 
 function AccountPanel({ user }) {
   return (
-    <div className="tech-card p-5 space-y-3" data-testid="account-panel">
+    <div className="tech-card p-5 space-y-3">
       <p className="text-sm">Email: <span className="font-semibold">{user.email}</span></p>
       <p className="text-sm">Plan: <span className="font-semibold capitalize">{user.plan || "starter"}</span></p>
       <p className="text-sm flex items-center gap-1">Rating: <Star className="w-3 h-3 fill-[#FFD700] text-[#FFD700]" /> <span className="font-semibold">{user.rating}</span> ({user.review_count} reviews)</p>
-      <Button variant="outline" className="w-full rounded-full" onClick={() => { clearAuth(); window.location.href = "/"; }} data-testid="account-logout-btn">
-        Log out
-      </Button>
+      <Button variant="outline" className="w-full rounded-full" onClick={() => { clearAuth(); window.location.href = "/"; }}>Log out</Button>
     </div>
   );
 }

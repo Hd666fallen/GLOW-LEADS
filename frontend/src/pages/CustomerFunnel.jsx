@@ -42,7 +42,6 @@ export default function CustomerFunnel() {
 
   const FINGER_IDS = ["left-thumb","left-index","left-middle","left-ring","left-pinky","right-thumb","right-index","right-middle","right-ring","right-pinky"];
   const [fingerState, setFingerState] = useState(null);
-  // FIX 1: fingerInited starts true so customizations are always sent
   const [fingerInited, setFingerInited] = useState(true);
 
   const initFingerStateIfNeeded = (force = false) => {
@@ -325,7 +324,7 @@ export default function CustomerFunnel() {
         />}
       </main>
 
-      {/* FIX 2: Color sheet — updates ALL fingers' colors so per-finger customizations are kept */}
+      {/* Color sheet — NO setFingerState so Step 7 customizations are preserved */}
       <Sheet open={sheet === "color"} onOpenChange={(o) => !o && setSheet(null)}>
         <SheetContent side="bottom" className="h-[80vh] overflow-y-auto rounded-t-3xl">
           <SheetHeader><SheetTitle>Change colour</SheetTitle></SheetHeader>
@@ -335,21 +334,13 @@ export default function CustomerFunnel() {
             onSelect={(c) => {
               setColor(c);
               setSheet(null);
-              setFingerState(prev => {
-                if (!prev) return prev;
-                const next = {};
-                Object.keys(prev).forEach(fid => {
-                  next[fid] = { ...prev[fid], color: { ...c } };
-                });
-                return next;
-              });
               generate('custom', { color: c });
             }}
           />
         </SheetContent>
       </Sheet>
 
-      {/* FIX 2: Design sheet — updates ALL fingers' designs so per-finger customizations are kept */}
+      {/* Design sheet — NO setFingerState so Step 7 customizations are preserved */}
       <Sheet open={sheet === "design"} onOpenChange={(o) => !o && setSheet(null)}>
         <SheetContent side="bottom" className="h-[85vh] overflow-y-auto rounded-t-3xl">
           <SheetHeader><SheetTitle>Change design</SheetTitle></SheetHeader>
@@ -359,21 +350,13 @@ export default function CustomerFunnel() {
             onPick={(d) => {
               setSheet(null);
               setDesign(d);
-              setFingerState(prev => {
-                if (!prev) return prev;
-                const next = {};
-                Object.keys(prev).forEach(fid => {
-                  next[fid] = { ...prev[fid], design: { ...d } };
-                });
-                return next;
-              });
               generate('custom', { design: d });
             }}
           />
         </SheetContent>
       </Sheet>
 
-      {/* FIX 2: Shape sheet — updates ALL fingers' shapes so per-finger customizations are kept */}
+      {/* Shape sheet — NO setFingerState so Step 7 customizations are preserved */}
       <Sheet open={sheet === "shape"} onOpenChange={(o) => !o && setSheet(null)}>
         <SheetContent side="bottom" className="h-[80vh] overflow-y-auto rounded-t-3xl">
           <SheetHeader><SheetTitle>Change shape</SheetTitle></SheetHeader>
@@ -384,14 +367,6 @@ export default function CustomerFunnel() {
             onPick={(s) => {
               setSheet(null);
               setShape(s);
-              setFingerState(prev => {
-                if (!prev) return prev;
-                const next = {};
-                Object.keys(prev).forEach(fid => {
-                  next[fid] = { ...prev[fid], shape: { ...s } };
-                });
-                return next;
-              });
               generate('custom', { shape: s });
             }}
           />
@@ -526,7 +501,6 @@ function StepUploadHand({ hand, handImage, fingerCoords, setFingerCoords, onUplo
           All 5 fingers marked ✓
         </p>
       )}
-
       <div
         className="relative rounded-2xl overflow-hidden border-2 border-[#C2185B]/20 bg-gray-50 cursor-crosshair"
         onClick={onPhotoClick}
@@ -537,9 +511,7 @@ function StepUploadHand({ hand, handImage, fingerCoords, setFingerCoords, onUplo
           const c = fingerCoords[`${hand}-${f}`];
           if (!c) return null;
           return (
-            <div
-              key={f}
-              style={{
+            <div key={f} style={{
                 position: "absolute",
                 left: `${c.x * 100}%`,
                 top: `${c.y * 100}%`,
@@ -556,17 +528,11 @@ function StepUploadHand({ hand, handImage, fingerCoords, setFingerCoords, onUplo
           );
         })}
       </div>
-
       <div className="grid grid-cols-2 gap-3 mt-5">
         <Button variant="outline" onClick={onReset} className="rounded-full py-5" data-testid={`reset-${hand}-btn`}>
           ↺ Re-upload
         </Button>
-        <Button
-          onClick={onDone}
-          disabled={!isDone}
-          className="funnel-cta rounded-full py-5"
-          data-testid={`done-${hand}-btn`}
-        >
+        <Button onClick={onDone} disabled={!isDone} className="funnel-cta rounded-full py-5" data-testid={`done-${hand}-btn`}>
           {isDone ? (hand === "left" ? "Next: right hand →" : "Continue →") : `${5 - tapIdx} fingers left`}
         </Button>
       </div>
