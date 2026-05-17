@@ -803,21 +803,7 @@ function StepCustomize({
   const [designCat, setDesignCat] = useState(designGroups[0]?.id);
   const activeFingerRef = useRef("left-ring");
 
-  useEffect(() => {
-    if (fingerState && Object.keys(fingerState).length > 0) return;
-    if (!selectedShape && !selectedDesign && !selectedColor) return;
-    const init = {};
-    ["left-thumb","left-index","left-middle","left-ring","left-pinky",
-     "right-thumb","right-index","right-middle","right-ring","right-pinky"
-    ].forEach(fid => {
-      init[fid] = {
-        shape: selectedShape ? JSON.parse(JSON.stringify(selectedShape)) : null,
-        design: selectedDesign ? JSON.parse(JSON.stringify(selectedDesign)) : null,
-        color: selectedColor ? JSON.parse(JSON.stringify(selectedColor)) : null,
-      };
-    });
-    setFingerState(init);
-  }, []);
+
 
   const selectFinger = (fid) => { activeFingerRef.current = fid; setActiveFinger(fid); };
 
