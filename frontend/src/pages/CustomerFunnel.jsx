@@ -50,9 +50,9 @@ export default function CustomerFunnel() {
     const next = {};
     for (const fid of FINGER_IDS) {
       next[fid] = {
-        shape: { ...shape },
-        design: { ...design },
-        color: { ...color },
+        shape: JSON.parse(JSON.stringify(shape)),
+        design: JSON.parse(JSON.stringify(design)),
+        color: JSON.parse(JSON.stringify(color)),
       };
     }
     setFingerState(next);
@@ -324,7 +324,7 @@ export default function CustomerFunnel() {
         />}
       </main>
 
-      {/* Color sheet — NO setFingerState so Step 7 customizations are preserved */}
+      {/* BUG 3 FIX: Color sheet — updates color on ALL fingers but keeps each finger's shape and design */}
       <Sheet open={sheet === "color"} onOpenChange={(o) => !o && setSheet(null)}>
         <SheetContent side="bottom" className="h-[80vh] overflow-y-auto rounded-t-3xl">
           <SheetHeader><SheetTitle>Change colour</SheetTitle></SheetHeader>
@@ -334,13 +334,25 @@ export default function CustomerFunnel() {
             onSelect={(c) => {
               setColor(c);
               setSheet(null);
+              // Update color on ALL fingers but keep each finger's own shape and design
+              if (fingerState) {
+                const updated = {};
+                for (const key of Object.keys(fingerState)) {
+                  updated[key] = {
+                    shape: fingerState[key].shape ? JSON.parse(JSON.stringify(fingerState[key].shape)) : null,
+                    design: fingerState[key].design ? JSON.parse(JSON.stringify(fingerState[key].design)) : null,
+                    color: JSON.parse(JSON.stringify(c)),
+                  };
+                }
+                setFingerState(updated);
+              }
               generate('custom', { color: c });
             }}
           />
         </SheetContent>
       </Sheet>
 
-      {/* Design sheet — NO setFingerState so Step 7 customizations are preserved */}
+      {/* BUG 3 FIX: Design sheet — updates design on ALL fingers but keeps each finger's shape and color */}
       <Sheet open={sheet === "design"} onOpenChange={(o) => !o && setSheet(null)}>
         <SheetContent side="bottom" className="h-[85vh] overflow-y-auto rounded-t-3xl">
           <SheetHeader><SheetTitle>Change design</SheetTitle></SheetHeader>
@@ -350,13 +362,25 @@ export default function CustomerFunnel() {
             onPick={(d) => {
               setSheet(null);
               setDesign(d);
+              // Update design on ALL fingers but keep each finger's own shape and color
+              if (fingerState) {
+                const updated = {};
+                for (const key of Object.keys(fingerState)) {
+                  updated[key] = {
+                    shape: fingerState[key].shape ? JSON.parse(JSON.stringify(fingerState[key].shape)) : null,
+                    design: JSON.parse(JSON.stringify(d)),
+                    color: fingerState[key].color ? JSON.parse(JSON.stringify(fingerState[key].color)) : null,
+                  };
+                }
+                setFingerState(updated);
+              }
               generate('custom', { design: d });
             }}
           />
         </SheetContent>
       </Sheet>
 
-      {/* Shape sheet — NO setFingerState so Step 7 customizations are preserved */}
+      {/* BUG 3 FIX: Shape sheet — updates shape on ALL fingers but keeps each finger's design and color */}
       <Sheet open={sheet === "shape"} onOpenChange={(o) => !o && setSheet(null)}>
         <SheetContent side="bottom" className="h-[80vh] overflow-y-auto rounded-t-3xl">
           <SheetHeader><SheetTitle>Change shape</SheetTitle></SheetHeader>
@@ -367,6 +391,18 @@ export default function CustomerFunnel() {
             onPick={(s) => {
               setSheet(null);
               setShape(s);
+              // Update shape on ALL fingers but keep each finger's own design and color
+              if (fingerState) {
+                const updated = {};
+                for (const key of Object.keys(fingerState)) {
+                  updated[key] = {
+                    shape: JSON.parse(JSON.stringify(s)),
+                    design: fingerState[key].design ? JSON.parse(JSON.stringify(fingerState[key].design)) : null,
+                    color: fingerState[key].color ? JSON.parse(JSON.stringify(fingerState[key].color)) : null,
+                  };
+                }
+                setFingerState(updated);
+              }
               generate('custom', { shape: s });
             }}
           />
@@ -629,9 +665,7 @@ function ShapeGrid({ shapes, detected, selected, onPick }) {
         <button key={s.id} onClick={() => onPick(s)}
           className={`group text-left bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-2xl transition relative flex flex-col h-[200px] ${selected === s.id ? "ring-4 ring-[#FFD700]" : ""}`}
           data-testid={`shape-card-${s.id}`}>
-          {detected === s.id && (
-            <span className="absolute top-2 right-2 z-10 bg-[#C2185B] text-white text-[9px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full">Detected</span>
-          )}
+          {detected === s.id && <span className="absolute top-2 right-2 z-10 bg-[#C2185B] text-white text-[9px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full">Detected</span>}
           <div className="h-[65%] overflow-hidden">
             <img src={SHAPE_PHOTOS[s.id?.toLowerCase()] || SHAPE_PHOTOS[s.label?.toLowerCase()] || s.image} alt={s.label}
               className="w-full h-full object-cover group-hover:scale-105 transition" loading="lazy"
@@ -682,10 +716,16 @@ function DesignGrid({ groups, active, selected, onPick }) {
           className={`group text-left bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-2xl transition relative flex flex-col h-[200px] ${selected === d.id ? "ring-4 ring-[#FFD700]" : ""}`}
           data-testid={`design-card-${d.id}`}>
           {d.badge && <span className="absolute top-2 left-2 z-10 bg-[#FFD700] text-[#1f2937] text-[9px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full">{d.badge}</span>}
-          {d.custom_by_tech && !imgErrored[d.id] && <span className="absolute top-2 right-2 z-10 bg-[#C2185B] text-white text-[9px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full" data-testid={`her-work-${d.id}`}>Her work ✨</span>}
-          <div className="h-[65%] overflow-hidden">
-            <img src={absolutise(d.image)} alt={d.label} className="w-full h-full object-cover group-hover:scale-105 transition" loading="lazy"
-              onError={(e) => { e.target.onerror = null; e.target.src = 'https://images.pexels.com/photos/3997391/pexels-photo-3997391.jpeg'; setImgErrored((prev) => ({ ...prev, [d.id]: true })); }} />
+          {d.custom_by_tech && !imgErrored[d.id] && <span className="absolute top-2 right-2 z-10 bg-[#C2185B] text-white text-[9px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full">Her work ✨</span>}
+          <div className="h-[65%] overflow-hidden bg-gray-100 flex items-center justify-center">
+            {absolutise(d.image) ? (
+              <img src={absolutise(d.image)} alt={d.label} className="w-full h-full object-cover group-hover:scale-105 transition" loading="lazy"
+                onError={(e) => { e.target.onerror = null; e.target.src = 'https://images.pexels.com/photos/3997391/pexels-photo-3997391.jpeg'; setImgErrored((prev) => ({ ...prev, [d.id]: true })); }} />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center bg-gray-100">
+                <span className="text-3xl">💅</span>
+              </div>
+            )}
           </div>
           <div className="h-[35%] px-3 py-2 flex flex-col justify-center">
             <h3 className="font-serif text-sm font-semibold leading-tight truncate">{d.label}</h3>
@@ -762,37 +802,46 @@ function StepCustomize({
   const [activeFinger, setActiveFinger] = useState("left-ring");
   const [designCat, setDesignCat] = useState(designGroups[0]?.id);
   const activeFingerRef = useRef("left-ring");
-  const initDone = useRef(false);
 
   useEffect(() => {
-    if (initDone.current) return;
+    if (fingerState && Object.keys(fingerState).length > 0) return;
     if (!selectedShape && !selectedDesign && !selectedColor) return;
-    initDone.current = true;
     const init = {};
     ["left-thumb","left-index","left-middle","left-ring","left-pinky",
      "right-thumb","right-index","right-middle","right-ring","right-pinky"
     ].forEach(fid => {
       init[fid] = {
-        shape: selectedShape ? { ...selectedShape } : null,
-        design: selectedDesign ? { ...selectedDesign } : null,
-        color: selectedColor ? { ...selectedColor } : null,
+        shape: selectedShape ? JSON.parse(JSON.stringify(selectedShape)) : null,
+        design: selectedDesign ? JSON.parse(JSON.stringify(selectedDesign)) : null,
+        color: selectedColor ? JSON.parse(JSON.stringify(selectedColor)) : null,
       };
     });
     setFingerState(init);
   }, []);
 
-  const selectFinger = (fid) => {
-    activeFingerRef.current = fid;
-    setActiveFinger(fid);
-  };
+  const selectFinger = (fid) => { activeFingerRef.current = fid; setActiveFinger(fid); };
 
+  // BUG 1 FIX: Every finger is deep-cloned independently — no shared references ever
   const updateFinger = (field, value) => {
     const fid = activeFingerRef.current;
-    const copy = value && typeof value === "object" ? JSON.parse(JSON.stringify(value)) : value;
+    const copy = value && typeof value === "object"
+      ? JSON.parse(JSON.stringify(value))
+      : value;
     setFingerState(prev => {
       if (!prev) return prev;
-      const next = { ...prev };
-      next[fid] = { ...prev[fid], [field]: copy };
+      const next = {};
+      for (const key of Object.keys(prev)) {
+        // Deep clone every finger independently to prevent shared references
+        next[key] = {
+          shape: prev[key].shape ? JSON.parse(JSON.stringify(prev[key].shape)) : null,
+          design: prev[key].design ? JSON.parse(JSON.stringify(prev[key].design)) : null,
+          color: prev[key].color ? JSON.parse(JSON.stringify(prev[key].color)) : null,
+        };
+        // Only update the active finger
+        if (key === fid) {
+          next[key][field] = copy;
+        }
+      }
       return next;
     });
   };
@@ -805,9 +854,9 @@ function StepCustomize({
      "right-thumb","right-index","right-middle","right-ring","right-pinky"
     ].forEach(fid => {
       updated[fid] = {
-        shape: src.shape ? { ...src.shape } : null,
-        design: src.design ? { ...src.design } : null,
-        color: src.color ? { ...src.color } : null,
+        shape: src.shape ? JSON.parse(JSON.stringify(src.shape)) : null,
+        design: src.design ? JSON.parse(JSON.stringify(src.design)) : null,
+        color: src.color ? JSON.parse(JSON.stringify(src.color)) : null,
       };
     });
     setFingerState(updated);
@@ -861,7 +910,6 @@ function StepCustomize({
 
       <div className="bg-white rounded-2xl shadow-sm border border-pink-100 p-4 space-y-5" data-testid="finger-editor">
         <p className="text-xs uppercase tracking-[0.2em] text-[#C2185B] font-semibold">Editing: {editingLabel}</p>
-
         <div>
           <p className="text-xs font-semibold text-gray-700 mb-2">Shape</p>
           <div className="grid grid-cols-3 gap-2">
@@ -878,7 +926,6 @@ function StepCustomize({
             })}
           </div>
         </div>
-
         <div>
           <p className="text-xs font-semibold text-gray-700 mb-2">Design</p>
           <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1.5 mb-2">
@@ -905,7 +952,6 @@ function StepCustomize({
             })}
           </div>
         </div>
-
         <div>
           <p className="text-xs font-semibold text-gray-700 mb-2">Colour</p>
           <div className="space-y-3 max-h-[200px] overflow-y-auto pr-1">

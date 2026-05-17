@@ -321,9 +321,8 @@ async def list_styles():
 @api.get("/funnel/config")
 async def funnel_config(tech_slug: Optional[str] = None):
     """Shapes + design groups + color groups.
-    If tech_slug supplied, override images with tech-uploaded photos.
-    Also injects custom designs added by the tech.
-    Designs with no photo show None (empty placeholder in funnel).
+    Only shows designs that the tech has uploaded a photo for.
+    Custom designs added by tech are injected at top of their category.
     """
     design_groups = [
         {**g, "designs": list(g["designs"])} for g in DESIGN_GROUPS
@@ -343,7 +342,7 @@ async def funnel_config(tech_slug: Optional[str] = None):
                 if sid in STYLE_MAP:
                     name_to_url[STYLE_MAP[sid]["name"].lower()] = url
 
-            # Apply tech photos to existing designs
+            # Only show designs that have an uploaded photo
             new_groups = []
             for g in design_groups:
                 new_designs = []
@@ -351,9 +350,6 @@ async def funnel_config(tech_slug: Optional[str] = None):
                     override = photos.get(d["id"]) or name_to_url.get(d["label"].lower())
                     if override:
                         new_designs.append({**d, "image": override, "custom_by_tech": True})
-                    else:
-                        # No photo — show None so funnel shows empty placeholder
-                        new_designs.append({**d, "image": None, "custom_by_tech": False})
                 new_groups.append({**g, "designs": new_designs})
             design_groups = new_groups
 
@@ -810,7 +806,6 @@ async def upload_style_photo(
     file: UploadFile = File(...),
     user: dict = Depends(require_tech),
 ):
-    # Accept any style_id including custom designs
     ext = (file.filename or "").rsplit(".", 1)[-1].lower()
     if ext not in ALLOWED_IMG_EXT:
         raise HTTPException(status_code=400, detail="Only JPG, PNG or WEBP allowed")
